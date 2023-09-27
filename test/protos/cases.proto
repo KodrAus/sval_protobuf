@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package sval.protobuf.cases;
+
+message Basic {
+    int32 id = 1;
+    string content = 2;
+    optional int32 index = 3;
+}
+
+message BasicScalar {
+    double f64 = 1;
+    float f32 = 2;
+    int32 vi32 = 3;
+    int64 vi64 = 4;
+    uint32 vu32 = 5;
+    uint64 vu64 = 6;
+    sint32 si32 = 7;
+    sint64 si64 = 8;
+    fixed32 fi32 = 9;
+    fixed64 fi64 = 10;
+    sfixed32 sfi32 = 11;
+    sfixed64 sfi64 = 12;
+    bool bool = 13;
+    string sbin = 14;
+    bytes bin = 15;
+}
+
+message BasicNonContiguousFields {
+    int32 id = 4;
+    string content = 11;
+    optional int32 index = 19;
+}
+
+message BasicOptional {
+  optional int32 a = 1;
+}
+
+message BasicRepeated {
+  repeated string a = 3;
+}
+
+message BasicRepeatedPacked {
+  repeated int32 a = 1 [packed = true];
+}
+
+message NestedInner {
+    BasicOptional a = 1;
+    bytes b = 2;
+    int32 c = 3;
+}
+
+message Nested {
+    NestedInner a = 1;
+    string b = 2;
+    int32 c = 3;
+}
+
+enum Enum {
+    A = 0;
+    B = -3;
+    C = -6;
+}
+
+message BasicEnum {
+    Enum value = 1;
+}
+
+message BasicMap {
+    map<string, int32> a = 1;
+}
+
+message BasicOneof {
+    oneof value {
+        int32 number = 1;
+        bool boolean = 2;
+        string text = 3;
+    }
+}
+
+message NestedOneof {
+    BasicOneof a = 1;
+}
