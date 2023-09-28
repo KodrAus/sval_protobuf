@@ -27,6 +27,7 @@ An encoded protobuf value.
 
 `ProtoBuf`s can be used as nested messages in larger messages.
 */
+#[derive(Clone, Debug)]
 pub struct ProtoBuf {
     bytes: Box<[u8]>,
     chunks: Box<[LenPrefixedChunk]>,
@@ -40,7 +41,7 @@ struct LenStackFrame<T> {
     state: T,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 struct LenPrefixedChunk {
     // Written before the data in `range`
     varint: Option<u64>,
