@@ -14,6 +14,7 @@ pub(crate) const APPROXIMATE_DEPTH: usize = 16;
 /**
 Buffering writer for protobuf, with state `T`.
 */
+#[derive(Debug)]
 pub struct ProtoBufMut<T> {
     bytes: Vec<u8>,
     chunks: Vec<LenPrefixedChunk>,

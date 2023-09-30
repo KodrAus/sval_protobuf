@@ -124,7 +124,19 @@ mod tests {
         let request =
             protos::opentelemetry::proto::collector::logs::v1::ExportLogsServiceRequest {
                 resource_logs: vec![protos::opentelemetry::proto::logs::v1::ResourceLogs {
-                    resource: None,
+                    resource: Some(
+                        protos::opentelemetry::proto::resource::v1::Resource {
+                            attributes: vec![
+                                protos::opentelemetry::proto::common::v1::KeyValue {
+                                    key: "service.name".to_string(),
+                                    value: Some(protos::opentelemetry::proto::common::v1::AnyValue {
+                                        value: Some(protos::opentelemetry::proto::common::v1::any_value::Value::StringValue("smoke-test-rs".to_owned()))
+                                    }),
+                                },
+                            ],
+                            dropped_attributes_count: 0,
+                        }
+                    ),
                     scope_logs: vec![protos::opentelemetry::proto::logs::v1::ScopeLogs {
                         scope: None,
                         log_records: vec![
@@ -181,7 +193,13 @@ mod tests {
     fn export_logs_service_request_sval() -> ProtoBuf {
         let request = ExportLogsServiceRequest {
             resource_logs: &[ResourceLogs {
-                resource: None,
+                resource: Some(Resource {
+                    attributes: &[KeyValue {
+                        key: "service.name",
+                        value: Some(AnyValue::String("smoke-test-rs")),
+                    }],
+                    dropped_attribute_count: 0,
+                }),
                 scope_logs: &[ScopeLogs {
                     scope: None,
                     log_records: &[LogRecord {

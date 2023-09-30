@@ -29,6 +29,7 @@ pub fn stream_to_protobuf(v: impl sval::Value) -> ProtoBuf {
     stream.buf.freeze()
 }
 
+#[derive(Debug)]
 struct ProtoBufStream {
     buf: ProtoBufMut<u64>,
     field: FieldState,
@@ -36,11 +37,13 @@ struct ProtoBufStream {
     one_of: OneOfState,
 }
 
+#[derive(Debug)]
 struct FieldState {
     number: u64,
     ty: FieldType,
 }
 
+#[derive(Debug)]
 enum FieldType {
     Any,
     Root,
@@ -81,11 +84,13 @@ impl FieldState {
     }
 }
 
+#[derive(Debug)]
 struct LenState {
     is_packed: bool,
     is_prefixed: bool,
 }
 
+#[derive(Debug)]
 struct OneOfState {
     is_internally_tagged: bool,
 }
