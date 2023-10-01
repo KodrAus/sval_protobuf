@@ -7,7 +7,7 @@ value without necessarily knowing the final size upfront.
 
 use crate::raw::{VarInt, WireType, I32, I64};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use core::cmp;
+use core::{cmp, ops::Deref, slice};
 
 pub(crate) const APPROXIMATE_DEPTH: usize = 16;
 
@@ -241,6 +241,10 @@ impl<T> ProtoBufMut<T> {
         }
     }
 
+    pub fn iter_chunks(&self) -> IterChunks {
+        IterChunks::new(&self.bytes, &self.chunks)
+    }
+
     pub fn to_vec(&self) -> Cow<[u8]> {
         to_vec(&self.bytes, &self.chunks)
     }
@@ -255,6 +259,10 @@ impl<T> ProtoBufMut<T> {
 }
 
 impl ProtoBuf {
+    pub fn iter_chunks(&self) -> IterChunks {
+        IterChunks::new(&self.bytes, &self.chunks)
+    }
+
     pub fn to_vec(&self) -> Cow<[u8]> {
         to_vec(&self.bytes, &self.chunks)
     }
@@ -268,38 +276,21 @@ impl sval::Value for ProtoBuf {
 
 fn to_stream<'a>(
     bytes: &'a [u8],
-    chunks: &[LenPrefixedChunk],
+    chunks: &'a [LenPrefixedChunk],
     stream: &mut (impl sval::Stream<'a> + ?Sized),
 ) -> sval::Result {
-    {
-        if chunks.len() == 0 {
-            stream.binary_begin(Some(bytes.len()))?;
-            stream.binary_fragment(bytes)?;
-        } else {
-            stream.binary_begin(None)?;
+    if chunks.len() == 0 {
+        stream.binary_begin(Some(bytes.len()))?;
+        stream.binary_fragment(bytes)?;
+    } else {
+        stream.binary_begin(None)?;
 
-            struct StreamVisitor<S> {
-                stream: S,
-                result: sval::Result,
+        for chunk in IterChunks::new(bytes, chunks) {
+            if let Some(bytes) = chunk.as_borrowed_slice() {
+                stream.binary_fragment(bytes)?;
+            } else {
+                stream.binary_fragment_computed(&*chunk)?;
             }
-
-            impl<'sval, S: sval::Stream<'sval>> ChunkVisitor<'sval> for StreamVisitor<S> {
-                fn borrowed(&mut self, chunk: &'sval [u8]) {
-                    self.result = self.stream.binary_fragment(chunk);
-                }
-
-                fn computed(&mut self, chunk: &[u8]) {
-                    self.result = self.stream.binary_fragment_computed(chunk);
-                }
-            }
-
-            let mut visitor = StreamVisitor {
-                stream: &mut *stream,
-                result: Ok(()),
-            };
-
-            visit_chunks(bytes, chunks, &mut visitor);
-            visitor.result?;
         }
     }
 
@@ -307,62 +298,136 @@ fn to_stream<'a>(
 }
 
 #[inline(always)]
-fn to_vec<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk]) -> Cow<'a, [u8]> {
+fn to_vec<'a>(bytes: &'a [u8], chunks: &'a [LenPrefixedChunk]) -> Cow<'a, [u8]> {
     if chunks.len() == 0 {
         return Cow::Borrowed(&bytes);
     }
 
-    struct BufVisitor(Vec<u8>);
-
-    impl<'a> ChunkVisitor<'a> for BufVisitor {
-        fn computed(&mut self, chunk: &[u8]) {
-            self.0.extend_from_slice(chunk);
-        }
+    let mut buf = Vec::new();
+    for chunk in IterChunks::new(bytes, chunks) {
+        buf.extend_from_slice(&*chunk);
     }
 
-    let mut visitor = BufVisitor(Vec::new());
-    visit_chunks(bytes, chunks, &mut visitor);
-
-    Cow::Owned(visitor.0)
+    Cow::Owned(buf)
 }
 
-trait ChunkVisitor<'a> {
-    fn borrowed(&mut self, chunk: &'a [u8]) {
-        self.computed(chunk);
-    }
-
-    fn computed(&mut self, chunk: &[u8]);
-}
-
-impl<'a, 'b, V: ChunkVisitor<'a> + ?Sized> ChunkVisitor<'a> for &'b mut V {
-    fn borrowed(&mut self, chunk: &'a [u8]) {
-        (**self).borrowed(chunk)
-    }
-
-    fn computed(&mut self, chunk: &[u8]) {
-        (**self).computed(chunk)
-    }
-}
-
-#[inline(always)]
-fn visit_chunks<'a>(
+pub struct IterChunks<'a> {
     bytes: &'a [u8],
-    chunks: &[LenPrefixedChunk],
-    mut visitor: impl ChunkVisitor<'a>,
-) {
-    let mut start = 0;
-    for chunk in chunks.iter() {
-        // Write the previous chunk
-        visitor.borrowed(&bytes[start..chunk.start]);
+    iter: slice::Iter<'a, LenPrefixedChunk>,
+    state: IterChunksState<'a>,
+}
 
-        // Write the current varint
-        if let Some(varint) = chunk.varint {
-            visitor.computed(VarInt::uint64(varint).fill_bytes(&mut [0; 10]));
+impl<'a> IterChunks<'a> {
+    fn new(bytes: &'a [u8], chunks: &'a [LenPrefixedChunk]) -> Self {
+        let mut iter = chunks.iter();
+
+        if let Some(chunk) = iter.next() {
+            IterChunks {
+                bytes,
+                iter,
+                state: IterChunksState::Chunk(0, chunk),
+            }
+        } else {
+            IterChunks {
+                bytes,
+                iter,
+                state: IterChunksState::Trailing(0),
+            }
         }
+    }
+}
 
-        start = chunk.start;
+enum IterChunksState<'a> {
+    Chunk(usize, &'a LenPrefixedChunk),
+    VarInt(usize, u64),
+    Trailing(usize),
+    Done,
+}
+
+impl<'a> Iterator for IterChunks<'a> {
+    type Item = Chunk<'a>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.state {
+            IterChunksState::Chunk(from, chunk) => {
+                let to = chunk.start;
+
+                let item = Chunk::bytes(&self.bytes[from..to]);
+
+                if let Some(varint) = chunk.varint {
+                    self.state = IterChunksState::VarInt(to, varint);
+                } else if let Some(next) = self.iter.next() {
+                    self.state = IterChunksState::Chunk(to, next);
+                } else {
+                    self.state = IterChunksState::Trailing(to);
+                }
+
+                Some(item)
+            }
+            IterChunksState::VarInt(to, varint) => {
+                let item = Chunk::varint(VarInt::uint64(varint));
+
+                if let Some(next) = self.iter.next() {
+                    self.state = IterChunksState::Chunk(to, next);
+                } else {
+                    self.state = IterChunksState::Trailing(to);
+                }
+
+                Some(item)
+            }
+            IterChunksState::Trailing(from) => {
+                let item = Chunk::bytes(&self.bytes[from..]);
+
+                self.state = IterChunksState::Done;
+
+                Some(item)
+            }
+            IterChunksState::Done => None,
+        }
+    }
+}
+
+pub struct Chunk<'a>(ChunkInner<'a>);
+
+enum ChunkInner<'a> {
+    Bytes(&'a [u8]),
+    VarInt([u8; 10], u8),
+}
+
+impl<'a> Chunk<'a> {
+    fn bytes(slice: &'a [u8]) -> Self {
+        Chunk(ChunkInner::Bytes(slice))
     }
 
-    // Write the trailing portion of the buffer
-    visitor.borrowed(&bytes[start..]);
+    fn varint(varint: VarInt) -> Self {
+        let mut buf = [0; 10];
+        let len = varint.fill_bytes(&mut buf).len() as u8;
+
+        Chunk(ChunkInner::VarInt(buf, len))
+    }
+
+    pub fn as_borrowed_slice(&self) -> Option<&'a [u8]> {
+        if let ChunkInner::Bytes(slice) = self.0 {
+            Some(slice)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a> Deref for Chunk<'a> {
+    type Target = [u8];
+
+    fn deref(&self) -> &Self::Target {
+        match self.0 {
+            ChunkInner::Bytes(slice) => slice,
+            ChunkInner::VarInt(ref buf, len) => &buf[..len as usize],
+        }
+    }
+}
+
+impl<'a> AsRef<[u8]> for Chunk<'a> {
+    fn as_ref(&self) -> &[u8] {
+        &**self
+    }
 }
