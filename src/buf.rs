@@ -187,6 +187,10 @@ impl<T> ProtoBufMut<T> {
         self.chunks.reserve(num_entries);
     }
 
+    pub(crate) fn reserve_bytes(&mut self, num_bytes: usize) {
+        self.bytes.reserve(num_bytes);
+    }
+
     pub fn begin_len(&mut self, state: T) {
         // If there is an active message already then perform some bookkeeping
         // Track any bytes written in the parent up to this point in its length
@@ -266,41 +270,48 @@ impl sval::Value for ProtoBuf {
     }
 }
 
+fn len(bytes: &[u8], chunks: &[LenPrefixedChunk]) -> usize {
+    bytes.len()
+        + chunks
+            .iter()
+            .filter_map(|chunk| chunk.varint)
+            .map(|varint| VarInt::uint64(varint).len())
+            .sum::<usize>()
+}
+
 fn to_stream<'a>(
     bytes: &'a [u8],
     chunks: &[LenPrefixedChunk],
     stream: &mut (impl sval::Stream<'a> + ?Sized),
 ) -> sval::Result {
-    {
-        if chunks.len() == 0 {
-            stream.binary_begin(Some(bytes.len()))?;
-            stream.binary_fragment(bytes)?;
-        } else {
-            stream.binary_begin(None)?;
+    if chunks.len() == 0 {
+        stream.binary_begin(Some(bytes.len()))?;
+        stream.binary_fragment(bytes)?;
+    } else {
+        stream.binary_begin(Some(len(bytes, chunks)))?;
 
-            struct StreamVisitor<S> {
-                stream: S,
-                result: sval::Result,
-            }
-
-            impl<'sval, S: sval::Stream<'sval>> ChunkVisitor<'sval> for StreamVisitor<S> {
-                fn borrowed(&mut self, chunk: &'sval [u8]) {
-                    self.result = self.stream.binary_fragment(chunk);
-                }
-
-                fn computed(&mut self, chunk: &[u8]) {
-                    self.result = self.stream.binary_fragment_computed(chunk);
-                }
-            }
-
-            let mut visitor = StreamVisitor {
-                stream: &mut *stream,
-                result: Ok(()),
-            };
-
-            visit_chunks(bytes, chunks, &mut visitor);
-            visitor.result?;
+        struct StreamVisitor<S> {
+            stream: S,
+            result: sval::Result,
         }
+
+        impl<'sval, S: sval::Stream<'sval>> ChunkVisitor<'sval> for StreamVisitor<S> {
+            fn borrowed(&mut self, chunk: &'sval [u8]) {
+                self.result = self.stream.binary_fragment(chunk);
+            }
+
+            fn computed(&mut self, chunk: &[u8]) {
+                self.result = self.stream.binary_fragment_computed(chunk);
+            }
+        }
+
+        let mut visitor = StreamVisitor {
+            stream: &mut *stream,
+            result: Ok(()),
+        };
+
+        visit_chunks(bytes, chunks, &mut visitor);
+        visitor.result?;
     }
 
     stream.binary_end()
@@ -320,8 +331,10 @@ fn to_vec<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk]) -> Cow<'a, [u8]> {
         }
     }
 
-    let mut visitor = BufVisitor(Vec::new());
+    let mut visitor = BufVisitor(Vec::with_capacity(len(bytes, chunks)));
     visit_chunks(bytes, chunks, &mut visitor);
+
+    debug_assert_eq!(len(bytes, chunks), visitor.0.len());
 
     Cow::Owned(visitor.0)
 }

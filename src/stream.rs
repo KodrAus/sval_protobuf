@@ -169,6 +169,8 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
             if num_bytes == 0 {
                 self.null()
             } else {
+                self.buf.reserve_bytes(num_bytes);
+
                 self.field.push_if_set(WireType::Len, &mut self.buf);
                 self.buf.push_len_varint_uint64(num_bytes as u64);
 
