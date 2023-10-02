@@ -247,9 +247,17 @@ mod tests {
     fn export_logs_service_request() {
         let prost = { export_logs_service_request_prost() };
 
-        let sval = { export_logs_service_request_sval().to_vec().into_owned() };
+        let sval1 = { export_logs_service_request_sval().to_vec().into_owned() };
+        let sval2 = {
+            let mut buf = Vec::new();
+            export_logs_service_request_sval()
+                .into_cursor()
+                .copy_to_vec(&mut buf);
+            buf
+        };
 
-        assert_proto(&prost, &sval);
+        assert_proto(&prost, &sval1);
+        assert_proto(&prost, &sval2);
     }
 
     #[bench]
@@ -260,5 +268,23 @@ mod tests {
     #[bench]
     fn buffer_sval(b: &mut test::Bencher) {
         b.iter(|| export_logs_service_request_sval())
+    }
+
+    #[bench]
+    fn buffer_sval_cursor(b: &mut test::Bencher) {
+        b.iter(|| {
+            let mut buf = Vec::new();
+            export_logs_service_request_sval()
+                .into_cursor()
+                .copy_to_vec(&mut buf);
+            buf
+        })
+    }
+
+    #[bench]
+    fn calculate_len(b: &mut test::Bencher) {
+        let buf = export_logs_service_request_sval();
+
+        b.iter(|| buf.len());
     }
 }

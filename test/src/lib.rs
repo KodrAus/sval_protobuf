@@ -196,7 +196,7 @@ mod tests {
             buf.to_vec().into_owned()
         };
 
-        let sval = {
+        let (sval1, sval2) = {
             #[derive(Value)]
             pub struct BasicScalar<'a> {
                 f64: f64,
@@ -222,7 +222,7 @@ mod tests {
                 bin: &'a sval::BinarySlice,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicScalar {
+            let buf = sval_protobuf::stream_to_protobuf(BasicScalar {
                 f64: 3.1415,
                 f32: 3.14,
                 vi32: -42,
@@ -238,13 +238,19 @@ mod tests {
                 bool: true,
                 sbin: "abc",
                 bin: sval::BinarySlice::new(b"123"),
-            })
-            .to_vec()
-            .into_owned()
+            });
+
+            let sval1 = buf.to_vec().into_owned();
+
+            let mut sval2 = Vec::new();
+            buf.into_cursor().copy_to_vec(&mut sval2);
+
+            (sval1, sval2)
         };
 
         assert_proto(&prost, &raw);
-        assert_proto(&prost, &sval);
+        assert_proto(&prost, &sval1);
+        assert_proto(&prost, &sval2);
     }
 
     #[test]
