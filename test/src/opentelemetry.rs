@@ -30,8 +30,8 @@ mod tests {
     }
 
     #[bench]
-    fn buffer(b: &mut test::Bencher) {
-        b.iter(|| export_logs_service_request().encode_to_vec());
+    fn buffer_prost(b: &mut test::Bencher) {
+        b.iter(|| prost::export_logs_service_request().encode_to_vec());
     }
 
     #[bench]

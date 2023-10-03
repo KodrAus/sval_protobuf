@@ -123,16 +123,16 @@ mod tests {
             protos::cases::BasicScalar {
                 f64: 3.1415,
                 f32: 3.14,
-                vi32: -42,
-                vi64: -420,
-                vu32: 42,
-                vu64: 420,
-                si32: -42,
-                si64: -420,
-                fi32: 42,
-                fi64: 420,
-                sfi32: -42,
-                sfi64: -420,
+                vi32: i32::MIN,
+                vi64: i64::MIN,
+                vu32: u32::MAX,
+                vu64: u64::MAX,
+                si32: i32::MIN,
+                si64: i64::MIN,
+                fi32: u32::MAX,
+                fi64: u64::MAX,
+                sfi32: i32::MIN,
+                sfi64: i64::MIN,
                 bool: true,
                 sbin: "abc".to_string(),
                 bin: b"123".to_vec(),
@@ -153,34 +153,34 @@ mod tests {
             buf.push_i32_float(3.14);
 
             buf.push_field_varint(3);
-            buf.push_varint_sint64(-42);
+            buf.push_varint_sint64(i32::MIN as i64);
 
             buf.push_field_varint(4);
-            buf.push_varint_sint64(-420);
+            buf.push_varint_sint64(i64::MIN);
 
             buf.push_field_varint(5);
-            buf.push_varint_uint64(42);
+            buf.push_varint_uint64(u32::MAX as u64);
 
             buf.push_field_varint(6);
-            buf.push_varint_uint64(420);
+            buf.push_varint_uint64(u64::MAX);
 
             buf.push_field_varint(7);
-            buf.push_varint_sint64z(-42);
+            buf.push_varint_sint64z(i32::MIN as i64);
 
             buf.push_field_varint(8);
-            buf.push_varint_sint64z(-420);
+            buf.push_varint_sint64z(i64::MIN);
 
             buf.push_field_i32(9);
-            buf.push_i32_fixed32(42);
+            buf.push_i32_fixed32(u32::MAX);
 
             buf.push_field_i64(10);
-            buf.push_i64_fixed64(420);
+            buf.push_i64_fixed64(u64::MAX);
 
             buf.push_field_i32(11);
-            buf.push_i32_sfixed32(-42);
+            buf.push_i32_sfixed32(i32::MIN);
 
             buf.push_field_i64(12);
-            buf.push_i64_sfixed64(-420);
+            buf.push_i64_sfixed64(i64::MIN);
 
             buf.push_field_varint(13);
             buf.push_varint_bool(true);
@@ -210,9 +210,9 @@ mod tests {
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
                 si64: i64,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
-                fi32: i32,
+                fi32: u32,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
-                fi64: i64,
+                fi64: u64,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
                 sfi32: i32,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
@@ -225,16 +225,16 @@ mod tests {
             let buf = sval_protobuf::stream_to_protobuf(BasicScalar {
                 f64: 3.1415,
                 f32: 3.14,
-                vi32: -42,
-                vi64: -420,
-                vu32: 42,
-                vu64: 420,
-                si32: -42,
-                si64: -420,
-                fi32: 42,
-                fi64: 420,
-                sfi32: -42,
-                sfi64: -420,
+                vi32: i32::MIN,
+                vi64: i64::MIN,
+                vu32: u32::MAX,
+                vu64: u64::MAX,
+                si32: i32::MIN,
+                si64: i64::MIN,
+                fi32: u32::MAX,
+                fi64: u64::MAX,
+                sfi32: i32::MIN,
+                sfi64: i64::MIN,
                 bool: true,
                 sbin: "abc",
                 bin: sval::BinarySlice::new(b"123"),
