@@ -86,7 +86,7 @@ mod tests {
             buf.push(b"Some content");
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval1 = sval_protobuf::stream_to_protobuf((1, "Some content", None::<i32>))
@@ -193,7 +193,7 @@ mod tests {
             buf.push_len_varint_uint64(3);
             buf.push(b"123");
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let (sval1, sval2) = {
@@ -361,7 +361,7 @@ mod tests {
             buf.push_field_varint(19);
             buf.push_varint_uint64(8);
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -406,7 +406,7 @@ mod tests {
             buf.push_field_varint(1);
             buf.push_varint_uint64(1);
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -456,7 +456,7 @@ mod tests {
             buf.push(b"3");
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval1 = {
@@ -514,7 +514,7 @@ mod tests {
             buf.push_varint_uint64(3);
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -586,7 +586,7 @@ mod tests {
             buf.push_varint_uint64(3);
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -626,7 +626,7 @@ mod tests {
             buf.push_field_varint(1);
             buf.push_varint_sint64(-3);
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -672,7 +672,7 @@ mod tests {
             buf.push_field_varint(2);
             buf.push_varint_bool(true);
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval1 = {
@@ -739,7 +739,7 @@ mod tests {
             buf.push_varint_bool(true);
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval1 = {
@@ -851,7 +851,7 @@ mod tests {
             buf.push_field_varint(3);
             buf.push_varint_uint64(2);
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -932,7 +932,7 @@ mod tests {
 
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -963,7 +963,7 @@ mod tests {
 
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -1001,7 +1001,7 @@ mod tests {
 
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -1033,7 +1033,7 @@ mod tests {
 
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {
@@ -1065,7 +1065,7 @@ mod tests {
 
             buf.end_len();
 
-            buf.to_vec().into_owned()
+            buf.freeze().to_vec().into_owned()
         };
 
         let sval = {

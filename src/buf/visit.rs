@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec::Vec};
 
 use super::LenPrefixedChunk;
 
-trait ChunkVisitor<'a> {
+trait Visitor<'a> {
     fn borrowed(&mut self, chunk: &'a [u8]) {
         self.computed(chunk);
     }
@@ -11,7 +11,7 @@ trait ChunkVisitor<'a> {
     fn computed(&mut self, chunk: &[u8]);
 }
 
-impl<'a, 'b, V: ChunkVisitor<'a> + ?Sized> ChunkVisitor<'a> for &'b mut V {
+impl<'a, 'b, V: Visitor<'a> + ?Sized> Visitor<'a> for &'b mut V {
     fn borrowed(&mut self, chunk: &'a [u8]) {
         (**self).borrowed(chunk)
     }
@@ -22,11 +22,7 @@ impl<'a, 'b, V: ChunkVisitor<'a> + ?Sized> ChunkVisitor<'a> for &'b mut V {
 }
 
 #[inline(always)]
-fn visit_chunks<'a>(
-    bytes: &'a [u8],
-    chunks: &[LenPrefixedChunk],
-    mut visitor: impl ChunkVisitor<'a>,
-) {
+fn visit_chunks<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk], mut visitor: impl Visitor<'a>) {
     let mut start = 0;
     for chunk in chunks.iter() {
         // Write the previous chunk
@@ -69,7 +65,7 @@ pub(super) fn to_stream<'a>(
             result: sval::Result,
         }
 
-        impl<'sval, S: sval::Stream<'sval>> ChunkVisitor<'sval> for StreamVisitor<S> {
+        impl<'sval, S: sval::Stream<'sval>> Visitor<'sval> for StreamVisitor<S> {
             fn borrowed(&mut self, chunk: &'sval [u8]) {
                 self.result = self.stream.binary_fragment(chunk);
             }
@@ -99,7 +95,7 @@ pub(super) fn to_vec<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk]) -> Cow<'a
 
     struct BufVisitor(Vec<u8>);
 
-    impl<'a> ChunkVisitor<'a> for BufVisitor {
+    impl<'a> Visitor<'a> for BufVisitor {
         fn computed(&mut self, chunk: &[u8]) {
             self.0.extend_from_slice(chunk);
         }

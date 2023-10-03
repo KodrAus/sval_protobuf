@@ -1,4 +1,4 @@
-use super::{visitor::len, LenPrefixedChunk};
+use super::{visit::len, LenPrefixedChunk};
 use crate::raw::VarInt;
 
 use alloc::{boxed::Box, vec::Vec};
@@ -233,25 +233,156 @@ mod bytes_support {
 
 #[cfg(test)]
 mod tests {
+    use crate::buf::ProtoBufMut;
+
     use super::*;
 
     #[test]
-    fn cursor_empty() {
-        todo!()
+    fn read_cursor_chunked() {
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"abc");
+        buf.begin_len(());
+        buf.push(b"def");
+        buf.end_len();
+        buf.push(b"ghi");
+        buf.begin_len(());
+        buf.push(b"jkl");
+        buf.end_len();
+        buf.push(b"mno");
+
+        let buf = buf.freeze();
+
+        let expected = buf.to_vec().into_owned();
+
+        let mut cursor = buf.into_cursor();
+
+        assert_ne!(0, cursor.chunks.items.len());
+
+        let mut read = Vec::new();
+        cursor.copy_to_vec(&mut read);
+
+        assert_eq!(expected, read);
     }
 
     #[test]
-    fn cursor_invalid() {
-        todo!()
+    fn read_cursor_contiguous() {
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"abc");
+        buf.push(b"def");
+        buf.push(b"ghi");
+        buf.push(b"jkl");
+        buf.push(b"mno");
+
+        let buf = buf.freeze();
+
+        let expected = buf.to_vec().into_owned();
+
+        let mut cursor = buf.into_cursor();
+
+        assert_eq!(0, cursor.chunks.items.len());
+
+        let mut read = Vec::new();
+        cursor.copy_to_vec(&mut read);
+
+        assert_eq!(expected, read);
+    }
+
+    #[test]
+    fn read_cursor_empty() {
+        let buf = ProtoBufMut::new(()).freeze();
+
+        let mut read = Vec::new();
+        buf.into_cursor().copy_to_vec(&mut read);
+
+        assert_eq!(0, read.len());
+    }
+
+    #[test]
+    fn read_cursor_invalid() {
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"ab");
+        buf.begin_len(());
+        buf.push(b"cde");
+        buf.end_len();
+        buf.push(b"efg");
+        buf.begin_len(());
+        buf.push(b"h");
+        buf.begin_len(());
+        buf.end_len();
+
+        let mut read = Vec::new();
+        buf.freeze().into_cursor().copy_to_vec(&mut read);
+
+        // Just ensure we don't loop or panic reading an incomplete buffer
+        assert_ne!(0, read.len());
     }
 
     #[test]
     fn advance_zero() {
-        todo!()
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"abc");
+        buf.begin_len(());
+        buf.push(b"def");
+        buf.end_len();
+        buf.push(b"ghi");
+        buf.begin_len(());
+        buf.push(b"jkl");
+        buf.end_len();
+        buf.push(b"mno");
+
+        let mut cursor = buf.freeze().into_cursor();
+
+        while cursor.remaining() > 0 {
+            cursor.advance(1);
+
+            let chunk = cursor.chunk().to_vec();
+            cursor.advance(0);
+
+            assert_eq!(chunk, cursor.chunk());
+        }
     }
 
     #[test]
     fn advance_through_chunk() {
-        todo!()
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"abc");
+        buf.begin_len(());
+        buf.push(b"def");
+        buf.end_len();
+        buf.push(b"ghi");
+        buf.begin_len(());
+        buf.push(b"jkl");
+        buf.end_len();
+        buf.push(b"mno");
+
+        let mut cursor = buf.freeze().into_cursor();
+
+        let remaining = cursor.remaining();
+
+        cursor.advance(remaining - 3);
+
+        let mut read = Vec::new();
+        cursor.copy_to_vec(&mut read);
+
+        assert_eq!(3, read.len());
+    }
+
+    #[test]
+    #[should_panic]
+    fn err_advance_past_end() {
+        let mut buf = ProtoBufMut::new(());
+
+        buf.push(b"abc");
+
+        let mut cursor = buf.freeze().into_cursor();
+
+        let remaining = cursor.remaining();
+
+        cursor.advance(remaining + 1);
     }
 }

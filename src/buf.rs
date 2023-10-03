@@ -12,7 +12,7 @@ use core::cmp;
 pub(crate) const APPROXIMATE_DEPTH: usize = 16;
 
 mod cursor;
-mod visitor;
+mod visit;
 
 pub use self::cursor::*;
 
@@ -250,14 +250,6 @@ impl<T> ProtoBufMut<T> {
         }
     }
 
-    pub fn len(&self) -> usize {
-        visitor::len(&self.bytes, &self.chunks)
-    }
-
-    pub fn to_vec(&self) -> Cow<[u8]> {
-        visitor::to_vec(&self.bytes, &self.chunks)
-    }
-
     #[inline(always)]
     pub fn freeze(self) -> ProtoBuf {
         ProtoBuf {
@@ -269,11 +261,11 @@ impl<T> ProtoBufMut<T> {
 
 impl ProtoBuf {
     pub fn len(&self) -> usize {
-        visitor::len(&self.bytes, &self.chunks)
+        visit::len(&self.bytes, &self.chunks)
     }
 
     pub fn to_vec(&self) -> Cow<[u8]> {
-        visitor::to_vec(&self.bytes, &self.chunks)
+        visit::to_vec(&self.bytes, &self.chunks)
     }
 
     pub fn into_cursor(self) -> ProtoBufCursor {
@@ -283,6 +275,6 @@ impl ProtoBuf {
 
 impl sval::Value for ProtoBuf {
     fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(&'sval self, stream: &mut S) -> sval::Result {
-        visitor::to_stream(&self.bytes, &self.chunks, stream)
+        visit::to_stream(&self.bytes, &self.chunks, stream)
     }
 }
