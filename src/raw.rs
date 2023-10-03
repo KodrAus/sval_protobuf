@@ -51,7 +51,7 @@ impl VarInt {
         let mut v = self.0;
         let mut i = 0;
 
-        while v > 0b1000_0000 {
+        while v >= 0b1000_0000 {
             buf[i] = ((v & 0b0111_1111) | 0b1000_0000) as u8;
             i += 1;
 
@@ -65,7 +65,9 @@ impl VarInt {
 
     #[inline(always)]
     pub fn len(&self) -> usize {
-        // [1]: https://github.com/google/protobuf/blob/3.3.x/src/google/protobuf/io/coded_stream.h#L1301-L1309
+        // From:
+        // [1]: https://github.com/tokio-rs/prost/blob/97cd4e29c46f1cac4d27428c759b6bc807c37201/src/encoding.rs#L261-L264
+        // [2]: https://github.com/google/protobuf/blob/3.3.x/src/google/protobuf/io/coded_stream.h#L1301-L1309
         ((((self.0 | 1).leading_zeros() ^ 63) * 9 + 73) / 64) as usize
     }
 }
@@ -148,6 +150,23 @@ pub enum WireType {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn varint_uint64_len() {
+        for n in (0u64..(u16::MAX as u64)).into_iter().chain(
+            [
+                u32::MAX as u64 - 1,
+                u32::MAX as u64,
+                u32::MAX as u64 + 1,
+                u64::MAX,
+            ]
+            .into_iter(),
+        ) {
+            let v = VarInt::uint64(n);
+
+            assert_eq!(v.len(), v.fill_bytes(&mut [0; 10]).len(), "{}", n);
+        }
+    }
 
     #[test]
     fn encode_varint_uint64() {

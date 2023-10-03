@@ -7,9 +7,14 @@ value without necessarily knowing the final size upfront.
 
 use crate::raw::{VarInt, WireType, I32, I64};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use core::{cmp, ops::Range};
+use core::cmp;
 
 pub(crate) const APPROXIMATE_DEPTH: usize = 16;
+
+mod cursor;
+mod visitor;
+
+pub use self::cursor::*;
 
 /**
 Buffering writer for protobuf, with state `T`.
@@ -246,11 +251,11 @@ impl<T> ProtoBufMut<T> {
     }
 
     pub fn len(&self) -> usize {
-        len(&self.bytes, &self.chunks)
+        visitor::len(&self.bytes, &self.chunks)
     }
 
     pub fn to_vec(&self) -> Cow<[u8]> {
-        to_vec(&self.bytes, &self.chunks)
+        visitor::to_vec(&self.bytes, &self.chunks)
     }
 
     #[inline(always)]
@@ -264,11 +269,11 @@ impl<T> ProtoBufMut<T> {
 
 impl ProtoBuf {
     pub fn len(&self) -> usize {
-        len(&self.bytes, &self.chunks)
+        visitor::len(&self.bytes, &self.chunks)
     }
 
     pub fn to_vec(&self) -> Cow<[u8]> {
-        to_vec(&self.bytes, &self.chunks)
+        visitor::to_vec(&self.bytes, &self.chunks)
     }
 
     pub fn into_cursor(self) -> ProtoBufCursor {
@@ -278,342 +283,6 @@ impl ProtoBuf {
 
 impl sval::Value for ProtoBuf {
     fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(&'sval self, stream: &mut S) -> sval::Result {
-        to_stream(&self.bytes, &self.chunks, stream)
-    }
-}
-
-fn len(bytes: &[u8], chunks: &[LenPrefixedChunk]) -> usize {
-    bytes.len()
-        + chunks
-            .iter()
-            .filter_map(|chunk| chunk.varint)
-            .map(|varint| VarInt::uint64(varint).len())
-            .sum::<usize>()
-}
-
-fn to_stream<'a>(
-    bytes: &'a [u8],
-    chunks: &[LenPrefixedChunk],
-    stream: &mut (impl sval::Stream<'a> + ?Sized),
-) -> sval::Result {
-    if chunks.len() == 0 {
-        stream.binary_begin(Some(bytes.len()))?;
-        stream.binary_fragment(bytes)?;
-    } else {
-        stream.binary_begin(Some(len(bytes, chunks)))?;
-
-        struct StreamVisitor<S> {
-            stream: S,
-            result: sval::Result,
-        }
-
-        impl<'sval, S: sval::Stream<'sval>> ChunkVisitor<'sval> for StreamVisitor<S> {
-            fn borrowed(&mut self, chunk: &'sval [u8]) {
-                self.result = self.stream.binary_fragment(chunk);
-            }
-
-            fn computed(&mut self, chunk: &[u8]) {
-                self.result = self.stream.binary_fragment_computed(chunk);
-            }
-        }
-
-        let mut visitor = StreamVisitor {
-            stream: &mut *stream,
-            result: Ok(()),
-        };
-
-        visit_chunks(bytes, chunks, &mut visitor);
-        visitor.result?;
-    }
-
-    stream.binary_end()
-}
-
-#[inline(always)]
-fn to_vec<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk]) -> Cow<'a, [u8]> {
-    if chunks.len() == 0 {
-        return Cow::Borrowed(&bytes);
-    }
-
-    struct BufVisitor(Vec<u8>);
-
-    impl<'a> ChunkVisitor<'a> for BufVisitor {
-        fn computed(&mut self, chunk: &[u8]) {
-            self.0.extend_from_slice(chunk);
-        }
-    }
-
-    let mut visitor = BufVisitor(Vec::with_capacity(len(bytes, chunks)));
-    visit_chunks(bytes, chunks, &mut visitor);
-
-    debug_assert_eq!(len(bytes, chunks), visitor.0.len());
-
-    Cow::Owned(visitor.0)
-}
-
-trait ChunkVisitor<'a> {
-    fn borrowed(&mut self, chunk: &'a [u8]) {
-        self.computed(chunk);
-    }
-
-    fn computed(&mut self, chunk: &[u8]);
-}
-
-impl<'a, 'b, V: ChunkVisitor<'a> + ?Sized> ChunkVisitor<'a> for &'b mut V {
-    fn borrowed(&mut self, chunk: &'a [u8]) {
-        (**self).borrowed(chunk)
-    }
-
-    fn computed(&mut self, chunk: &[u8]) {
-        (**self).computed(chunk)
-    }
-}
-
-#[inline(always)]
-fn visit_chunks<'a>(
-    bytes: &'a [u8],
-    chunks: &[LenPrefixedChunk],
-    mut visitor: impl ChunkVisitor<'a>,
-) {
-    let mut start = 0;
-    for chunk in chunks.iter() {
-        // Write the previous chunk
-        visitor.borrowed(&bytes[start..chunk.start]);
-
-        // Write the current varint
-        if let Some(varint) = chunk.varint {
-            visitor.computed(VarInt::uint64(varint).fill_bytes(&mut [0; 10]));
-        }
-
-        start = chunk.start;
-    }
-
-    // Write the trailing portion of the buffer
-    visitor.borrowed(&bytes[start..]);
-}
-
-pub struct ProtoBufCursor {
-    bytes: Box<[u8]>,
-    chunks: IterBox<LenPrefixedChunk>,
-    // Typically called in loops, so it's good to have this
-    // value readily available
-    remaining: usize,
-    next: NextChunk,
-    current: CurrentChunk,
-}
-
-struct IterBox<T> {
-    items: Box<[T]>,
-    head: usize,
-}
-
-impl<T> Iterator for IterBox<T>
-where
-    T: Copy,
-{
-    type Item = T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let item = self.items.get(self.head).copied();
-        self.head += 1;
-
-        item
-    }
-}
-
-impl ProtoBufCursor {
-    fn new(bytes: Box<[u8]>, chunks: Box<[LenPrefixedChunk]>) -> Self {
-        let remaining = len(&bytes, &chunks);
-
-        let mut chunks = IterBox {
-            items: chunks,
-            head: 0,
-        };
-
-        let mut cursor = if let Some(chunk) = chunks.next() {
-            ProtoBufCursor {
-                bytes,
-                chunks,
-                remaining,
-                next: NextChunk::Chunk(0, chunk),
-                current: CurrentChunk::empty(),
-            }
-        } else {
-            ProtoBufCursor {
-                bytes,
-                chunks,
-                remaining,
-                next: NextChunk::Trailing(0),
-                current: CurrentChunk::empty(),
-            }
-        };
-
-        cursor.move_next();
-        cursor
-    }
-
-    fn move_next(&mut self) -> bool {
-        match self.next {
-            NextChunk::Chunk(from, chunk) => {
-                let to = chunk.start;
-
-                self.current = CurrentChunk::bytes(from..to);
-
-                if let Some(varint) = chunk.varint {
-                    self.next = NextChunk::VarInt(to, varint);
-                } else if let Some(next) = self.chunks.next() {
-                    self.next = NextChunk::Chunk(to, next);
-                } else {
-                    self.next = NextChunk::Trailing(to);
-                }
-
-                true
-            }
-            NextChunk::VarInt(to, varint) => {
-                self.current = CurrentChunk::varint(VarInt::uint64(varint));
-
-                if let Some(next) = self.chunks.next() {
-                    self.next = NextChunk::Chunk(to, next);
-                } else {
-                    self.next = NextChunk::Trailing(to);
-                }
-
-                true
-            }
-            NextChunk::Trailing(from) => {
-                self.current = CurrentChunk::bytes(from..self.bytes.len());
-
-                self.next = NextChunk::Done;
-
-                true
-            }
-            NextChunk::Done => {
-                self.current = CurrentChunk::Empty;
-
-                false
-            }
-        }
-    }
-
-    pub fn chunk(&self) -> &[u8] {
-        self.current.as_slice(&self.bytes)
-    }
-
-    pub fn advance(&mut self, mut cnt: usize) {
-        self.remaining = self.remaining.saturating_sub(cnt);
-
-        loop {
-            let (cnt_remaining, chunk_remaining) = self.current.advance(cnt);
-            cnt = cnt_remaining;
-
-            let has_next = if chunk_remaining == 0 {
-                self.move_next()
-            } else {
-                true
-            };
-
-            if cnt == 0 {
-                return;
-            } else if has_next {
-                continue;
-            } else {
-                panic!("attempt to advance past the end of the buffer");
-            }
-        }
-    }
-
-    pub fn remaining(&self) -> usize {
-        self.remaining
-    }
-
-    pub fn copy_to_vec(&mut self, v: &mut Vec<u8>) {
-        v.reserve(self.remaining());
-
-        while self.remaining() > 0 {
-            let chunk = self.chunk();
-            v.extend_from_slice(chunk);
-            self.advance(chunk.len());
-        }
-    }
-}
-
-enum NextChunk {
-    Chunk(usize, LenPrefixedChunk),
-    VarInt(usize, u64),
-    Trailing(usize),
-    Done,
-}
-
-enum CurrentChunk {
-    Empty,
-    Bytes {
-        remaining: Range<usize>,
-    },
-    VarInt {
-        buf: [u8; 10],
-        remaining: Range<usize>,
-    },
-}
-
-impl CurrentChunk {
-    fn empty() -> Self {
-        CurrentChunk::Empty
-    }
-
-    fn bytes(range: Range<usize>) -> Self {
-        CurrentChunk::Bytes { remaining: range }
-    }
-
-    fn varint(varint: VarInt) -> Self {
-        let mut buf = [0; 10];
-        let len = varint.fill_bytes(&mut buf).len();
-
-        CurrentChunk::VarInt {
-            buf,
-            remaining: 0..len,
-        }
-    }
-
-    fn advance(&mut self, cnt: usize) -> (usize, usize) {
-        let remaining = match self {
-            CurrentChunk::Bytes { remaining } => remaining,
-            CurrentChunk::VarInt { remaining, .. } => remaining,
-            CurrentChunk::Empty => return (cnt, 0),
-        };
-
-        let from = remaining.start;
-        remaining.start = cmp::min(remaining.start + cnt, remaining.end);
-
-        let cnt_remaining = cnt.saturating_sub(remaining.start - from);
-        let chunk_remaining = remaining.len();
-
-        (cnt_remaining, chunk_remaining)
-    }
-
-    fn as_slice<'a>(&'a self, bytes: &'a [u8]) -> &'a [u8] {
-        match self {
-            CurrentChunk::Bytes { remaining } => &bytes[remaining.clone()],
-            CurrentChunk::VarInt { buf, remaining } => &buf[remaining.clone()],
-            CurrentChunk::Empty => &[],
-        }
-    }
-}
-
-#[cfg(feature = "bytes")]
-mod bytes_support {
-    use super::*;
-
-    impl bytes::Buf for ProtoBufCursor {
-        fn chunk(&self) -> &[u8] {
-            self.chunk()
-        }
-
-        fn remaining(&self) -> usize {
-            self.remaining()
-        }
-
-        fn advance(&mut self, cnt: usize) {
-            self.advance(cnt);
-        }
+        visitor::to_stream(&self.bytes, &self.chunks, stream)
     }
 }
