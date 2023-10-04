@@ -7,7 +7,6 @@ value without necessarily knowing the final size upfront.
 
 use crate::raw::{VarInt, WireType, I32, I64};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use core::cmp;
 
 pub(crate) const APPROXIMATE_DEPTH: usize = 16;
 
@@ -23,7 +22,6 @@ Buffering writer for protobuf, with state `T`.
 pub struct ProtoBufMut<T> {
     bytes: Vec<u8>,
     chunks: Vec<LenPrefixedChunk>,
-    approximate_len_bytes: usize,
     root_state: T,
     len_stack: Vec<LenStackFrame<T>>,
 }
@@ -60,7 +58,6 @@ impl<T> ProtoBufMut<T> {
     #[inline(always)]
     pub fn new(state: T) -> Self {
         ProtoBufMut {
-            approximate_len_bytes: 128,
             bytes: Vec::new(),
             chunks: Vec::new(),
             root_state: state,
@@ -178,20 +175,12 @@ impl<T> ProtoBufMut<T> {
         self.push_varint_uint64(len);
     }
 
-    #[inline(always)]
-    fn observe_len_bytes(&mut self, len: usize) {
-        let len = cmp::min(len, 1024 * 8);
-
-        self.approximate_len_bytes = cmp::max(self.approximate_len_bytes, len);
-    }
-
+    #[inline]
     pub(crate) fn reserve(&mut self, num_entries: usize) {
-        // NOTE: This may result in constant over-allocation; we might want
-        // to tweak this based to only pre-allocate on "big" looking messages
-        self.bytes.reserve(self.approximate_len_bytes);
-        self.chunks.reserve(num_entries);
+        self.bytes.reserve((256 * num_entries) / (self.depth() + 1));
     }
 
+    #[inline]
     pub(crate) fn reserve_bytes(&mut self, num_bytes: usize) {
         self.bytes.reserve(num_bytes);
     }
@@ -233,8 +222,6 @@ impl<T> ProtoBufMut<T> {
         if let Some(frame) = self.len_stack.pop() {
             // Calculate any remaining unaccounted for bytes
             let len = frame.len + (self.bytes.len() - frame.head);
-
-            self.observe_len_bytes(len);
 
             // Set the varint value in the chunk
             self.chunks[frame.chunk_idx].varint = Some(len as u64);
