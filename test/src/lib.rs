@@ -1,8 +1,3 @@
-#![allow(dead_code)]
-#![feature(test)]
-
-extern crate test;
-
 pub mod protos {
     pub mod cases {
         include!(concat!(env!("OUT_DIR"), "/sval.protobuf.cases.rs"));
@@ -48,7 +43,7 @@ pub mod protos {
     }
 }
 
-mod opentelemetry;
+pub mod opentelemetry;
 
 #[cfg(test)]
 mod tests {
@@ -632,6 +627,7 @@ mod tests {
         let sval = {
             #[derive(Value)]
             #[repr(i32)]
+            #[allow(dead_code)]
             pub enum Enum {
                 A = -1,
                 B = -3,
@@ -677,6 +673,7 @@ mod tests {
 
         let sval1 = {
             #[derive(Value)]
+            #[allow(dead_code)]
             pub enum Value<'a> {
                 Number(i32),
                 Boolean(bool),
@@ -698,6 +695,7 @@ mod tests {
 
         let sval2 = {
             #[derive(Value)]
+            #[allow(dead_code)]
             pub enum Value<'a> {
                 Number(i32),
                 Boolean(bool),
@@ -744,6 +742,7 @@ mod tests {
 
         let sval1 = {
             #[derive(Value)]
+            #[allow(dead_code)]
             pub enum Value<'a> {
                 Number(i32),
                 Boolean(bool),
@@ -772,6 +771,7 @@ mod tests {
 
         let sval2 = {
             #[derive(Value)]
+            #[allow(dead_code)]
             pub enum Value<'a> {
                 Number(i32),
                 Boolean(bool),
@@ -894,6 +894,7 @@ mod tests {
     #[test]
     fn exotic_enum_tuple() {
         #[derive(Value)]
+        #[allow(dead_code)]
         pub enum Enum {
             Tag,
             Tuple(i32, i32),
@@ -1086,6 +1087,7 @@ mod tests {
 }
 
 #[track_caller]
+#[cfg(test)]
 fn assert_proto(expected: &[u8], actual: &[u8]) {
     assert_eq!(
         expected,
@@ -1096,10 +1098,12 @@ fn assert_proto(expected: &[u8], actual: &[u8]) {
     )
 }
 
+#[cfg(test)]
 fn inspect(encoded: &[u8]) -> String {
     protoscope(encoded).unwrap_or_else(|_| "<protoscope not available>".to_owned())
 }
 
+#[cfg(test)]
 fn protoscope(encoded: &[u8]) -> Result<String, Box<dyn std::error::Error + 'static>> {
     use std::{
         io::{Read, Write},

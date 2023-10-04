@@ -28,32 +28,4 @@ mod tests {
         assert_proto(&prost, &sval1);
         assert_proto(&prost, &sval2);
     }
-
-    #[bench]
-    fn buffer_prost(b: &mut test::Bencher) {
-        b.iter(|| prost::export_logs_service_request().encode_to_vec());
-    }
-
-    #[bench]
-    fn buffer_sval(b: &mut test::Bencher) {
-        b.iter(|| sval_protobuf::stream_to_protobuf(sval::export_logs_service_request()))
-    }
-
-    #[bench]
-    fn buffer_sval_cursor(b: &mut test::Bencher) {
-        b.iter(|| {
-            let mut buf = Vec::new();
-            sval_protobuf::stream_to_protobuf(sval::export_logs_service_request())
-                .into_cursor()
-                .copy_to_vec(&mut buf);
-            buf
-        })
-    }
-
-    #[bench]
-    fn calculate_len(b: &mut test::Bencher) {
-        let buf = sval_protobuf::stream_to_protobuf(sval::export_logs_service_request());
-
-        b.iter(|| buf.len());
-    }
 }

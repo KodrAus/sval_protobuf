@@ -1,0 +1,23 @@
+[package]
+name = "sval_protobuf_bench"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies.sval_protobuf]
+path = "../"
+
+[dependencies.sval_protobuf_test]
+path = "../test"
+
+[dependencies.sval]
+version = "2.8"
+
+[dependencies.prost]
+version = "0.11"
+
+[dependencies.bytes]
+version = "1"
