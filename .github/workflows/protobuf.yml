@@ -21,11 +21,20 @@ jobs:
           sudo unzip protoc-$PROTOC_VERSION-linux-x86_64.zip -d $HOME/.protoc &&
           echo "$HOME/.protoc/bin" >> $GITHUB_PATH
 
+      - name: Install protoscope
+        run: |
+          mkdir $HOME/.protoscope &&
+          GOBIN=/$HOME/.protoscope go install github.com/protocolbuffers/protoscope/cmd/protoscope...@latest &&
+          echo "$HOME/.protoscope" >> $GITHUB_PATH
+
       - name: Install Rust toolchain
         run: rustup default nightly
 
       - name: Install cargo-hack
         run: cargo install cargo-hack
+
+      - name: Example
+        run: cargo run --example protoscope
 
       - name: Powerset
         run: cargo hack test --all --feature-powerset
