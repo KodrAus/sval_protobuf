@@ -1,5 +1,9 @@
 # `sval_protobuf`
 
+[![Rust](https://github.com/KodrAus/sval_protobuf/workflows/protobuf/badge.svg)](https://github.com/KodrAus/sval_protobuf/actions)
+[![Latest version](https://img.shields.io/crates/v/sval_protobuf.svg)](https://crates.io/crates/sval_protobuf)
+[![Documentation Latest](https://docs.rs/sval_protobuf/badge.svg)](https://docs.rs/sval_protobuf)
+
 [protobuf](https://protobuf.dev/) support for [`sval`](https://docs.rs/sval/latest/sval/).
 
 This library implements a binary encoding for `sval::Value`s that's compatible with the
