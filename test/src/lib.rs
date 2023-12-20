@@ -949,6 +949,167 @@ mod tests {
     }
 
     #[test]
+    fn exotic_enum_empty() {
+        struct Enum;
+
+        impl sval::Value for Enum {
+            fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(
+                &'sval self,
+                stream: &mut S,
+            ) -> sval::Result {
+                stream.enum_begin(None, Some(&sval::Label::new("Enum")), None)?;
+                stream.enum_end(None, Some(&sval::Label::new("Enum")), None)
+            }
+        }
+
+        #[derive(Value)]
+        pub struct Struct {
+            a: i32,
+            b: Enum,
+            c: i32,
+        }
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            // a
+            buf.push_field_varint(1);
+            buf.push_varint_uint64(2);
+
+            // c
+            buf.push_field_varint(3);
+            buf.push_varint_uint64(5);
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Struct {
+                a: 2,
+                b: Enum,
+                c: 5,
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+
+        let raw = {
+            let buf = ProtoBufMut::new(());
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Enum)
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
+    fn exotic_nested_enum_empty() {
+        struct Outer;
+
+        impl sval::Value for Outer {
+            fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(
+                &'sval self,
+                stream: &mut S,
+            ) -> sval::Result {
+                stream.enum_begin(None, Some(&sval::Label::new("Outer")), None)?;
+                stream.enum_begin(
+                    None,
+                    Some(&sval::Label::new("Inner")),
+                    Some(&sval::Index::new(0).with_tag(&sval::tags::VALUE_OFFSET)),
+                )?;
+                stream.enum_begin(
+                    None,
+                    Some(&sval::Label::new("Core")),
+                    Some(&sval::Index::new(0).with_tag(&sval::tags::VALUE_OFFSET)),
+                )?;
+                stream.enum_end(
+                    None,
+                    Some(&sval::Label::new("Core")),
+                    Some(&sval::Index::new(0).with_tag(&sval::tags::VALUE_OFFSET)),
+                )?;
+                stream.enum_end(
+                    None,
+                    Some(&sval::Label::new("Inner")),
+                    Some(&sval::Index::new(0).with_tag(&sval::tags::VALUE_OFFSET)),
+                )?;
+                stream.enum_end(None, Some(&sval::Label::new("Outer")), None)
+            }
+        }
+
+        #[derive(Value)]
+        pub struct Struct {
+            a: i32,
+            b: Outer,
+            c: i32,
+        }
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            // a
+            buf.push_field_varint(1);
+            buf.push_varint_uint64(2);
+
+            // b
+            buf.push_field_len(2);
+            buf.begin_len(());
+
+            buf.push_field_len(1);
+            buf.begin_len(());
+            buf.end_len();
+
+            buf.end_len();
+
+            // c
+            buf.push_field_varint(3);
+            buf.push_varint_uint64(5);
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Struct {
+                a: 2,
+                b: Outer,
+                c: 5,
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_len(1);
+
+            buf.begin_len(());
+            buf.end_len();
+
+            buf.end_len();
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Outer)
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
     fn pre_encoded_len() {
         let raw = {
             let mut buf = ProtoBufMut::new(());
