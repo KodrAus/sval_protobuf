@@ -1250,6 +1250,9 @@ mod tests {
 #[track_caller]
 #[cfg(test)]
 fn assert_proto(expected: &[u8], actual: &[u8]) {
+    let roundtrip = sval_protobuf::buf::ProtoBuf::pre_encoded(actual);
+    assert_eq!(actual, &*roundtrip.to_vec());
+
     assert_eq!(
         expected,
         actual,

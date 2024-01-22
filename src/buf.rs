@@ -338,6 +338,16 @@ impl<T> ProtoBufMut<T> {
 
 impl ProtoBuf {
     /**
+    Treat a buffer as a pre-encoded message.
+
+    No validation is performed on the given buffer; it's expected to already
+    contain a valid message.
+    */
+    pub fn pre_encoded(buf: impl Into<Box<[u8]>>) -> Self {
+        ProtoBuf { bytes: buf.into(), chunks: [].into() }
+    }
+
+    /**
     Get the length in bytes of the encoded payload.
     */
     pub fn len(&self) -> usize {
