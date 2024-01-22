@@ -23,7 +23,7 @@ version = "2"
 version = "2"
 
 [dependencies.sval_protobuf]
-version = "0.1.0"
+version = "0.1.1"
 ```
 
 Derive `sval::Value` on your types and encode them as protobuf messages:
