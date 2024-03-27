@@ -4,6 +4,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use super::LenPrefixedChunk;
 
 trait Visitor<'a> {
+    #[inline]
     fn borrowed(&mut self, chunk: &'a [u8]) {
         self.computed(chunk);
     }
@@ -12,10 +13,12 @@ trait Visitor<'a> {
 }
 
 impl<'a, 'b, V: Visitor<'a> + ?Sized> Visitor<'a> for &'b mut V {
+    #[inline]
     fn borrowed(&mut self, chunk: &'a [u8]) {
         (**self).borrowed(chunk)
     }
 
+    #[inline]
     fn computed(&mut self, chunk: &[u8]) {
         (**self).computed(chunk)
     }
@@ -40,6 +43,7 @@ fn visit_chunks<'a>(bytes: &'a [u8], chunks: &[LenPrefixedChunk], mut visitor: i
     visitor.borrowed(&bytes[start..]);
 }
 
+#[inline(always)]
 pub(super) fn len(bytes: &[u8], chunks: &[LenPrefixedChunk]) -> usize {
     bytes.len()
         + chunks
