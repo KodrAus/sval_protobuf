@@ -949,6 +949,68 @@ mod tests {
     }
 
     #[test]
+    fn exotic_tagged_empty() {
+        struct Tagged;
+
+        impl sval::Value for Tagged {
+            fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(
+                &'sval self,
+                stream: &mut S,
+            ) -> sval::Result {
+                stream.tagged_begin(None, Some(&sval::Label::new("Tagged")), None)?;
+                stream.tagged_end(None, Some(&sval::Label::new("Tagged")), None)
+            }
+        }
+
+        #[derive(Value)]
+        pub struct Struct {
+            a: i32,
+            b: Tagged,
+            c: i32,
+        }
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            // a
+            buf.push_field_varint(1);
+            buf.push_varint_uint64(2);
+
+            // c
+            buf.push_field_varint(3);
+            buf.push_varint_uint64(5);
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Struct {
+                a: 2,
+                b: Tagged,
+                c: 5,
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+
+        let raw = {
+            let buf = ProtoBufMut::new(());
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            sval_protobuf::stream_to_protobuf(Tagged)
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
     fn exotic_enum_empty() {
         struct Enum;
 

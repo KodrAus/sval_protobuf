@@ -107,6 +107,7 @@ impl ProtoBufCursor {
         }
     }
 
+    #[inline]
     pub fn chunk(&self) -> &[u8] {
         self.current.as_slice(&self.bytes)
     }
@@ -134,6 +135,7 @@ impl ProtoBufCursor {
         }
     }
 
+    #[inline]
     pub fn remaining(&self) -> usize {
         self.remaining
     }
@@ -168,14 +170,17 @@ enum CurrentChunk {
 }
 
 impl CurrentChunk {
+    #[inline]
     fn empty() -> Self {
         CurrentChunk::Empty
     }
 
+    #[inline]
     fn bytes(range: Range<usize>) -> Self {
         CurrentChunk::Bytes { remaining: range }
     }
 
+    #[inline]
     fn varint(varint: VarInt) -> Self {
         let mut buf = [0; 10];
         let len = varint.fill_bytes(&mut buf).len();
@@ -217,14 +222,17 @@ mod bytes_support {
     use super::*;
 
     impl bytes::Buf for ProtoBufCursor {
+        #[inline]
         fn chunk(&self) -> &[u8] {
             self.chunk()
         }
 
+        #[inline]
         fn remaining(&self) -> usize {
             self.remaining()
         }
 
+        #[inline]
         fn advance(&mut self, cnt: usize) {
             self.advance(cnt);
         }
