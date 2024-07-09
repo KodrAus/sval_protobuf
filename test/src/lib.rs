@@ -1,3 +1,6 @@
+// NOTE: This will need to be fixed properly at some point
+#![allow(ambiguous_associated_items)]
+
 pub mod protos {
     pub mod cases {
         include!(concat!(env!("OUT_DIR"), "/sval.protobuf.cases.rs"));
