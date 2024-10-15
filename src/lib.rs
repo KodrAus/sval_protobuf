@@ -90,6 +90,8 @@ Anonymous tuples are also messages:
 2: {"My Message"}
 3: {"Some amazing content"}
 ```
+
+128bit numbers are always encoded as a 16 byte buffer with the little-endian bytes of the value.
 */
 
 #![no_std]
