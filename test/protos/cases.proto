@@ -8,6 +8,11 @@ message Basic {
     optional int32 index = 3;
 }
 
+message Num128Bit {
+    bytes u = 1;
+    bytes i = 2;
+}
+
 message BasicScalar {
     double f64 = 1;
     float f32 = 2;

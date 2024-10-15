@@ -244,6 +244,14 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
         }
     }
 
+    fn u128(&mut self, value: u128) -> sval::Result {
+        let bytes = value.to_le_bytes();
+
+        self.binary_begin(Some(bytes.len()))?;
+        self.binary_fragment_computed(&bytes)?;
+        self.binary_end()
+    }
+
     fn i32(&mut self, value: i32) -> sval::Result {
         if value == 0 {
             self.null()
@@ -296,6 +304,14 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
                 }
             }
         }
+    }
+
+    fn i128(&mut self, value: i128) -> sval::Result {
+        let bytes = value.to_le_bytes();
+
+        self.binary_begin(Some(bytes.len()))?;
+        self.binary_fragment_computed(&bytes)?;
+        self.binary_end()
     }
 
     fn f32(&mut self, value: f32) -> sval::Result {

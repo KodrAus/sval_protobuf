@@ -327,6 +327,72 @@ mod tests {
     }
 
     #[test]
+    fn num_128bit_small() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::Num128Bit {
+                u: 42u128.to_le_bytes().to_vec(),
+                i: (-42i128).to_le_bytes().to_vec(),
+            }
+            .encode(&mut buf)
+            .unwrap();
+
+            buf
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct Num128Bit {
+                u: u128,
+                i: i128,
+            }
+
+            sval_protobuf::stream_to_protobuf(Num128Bit {
+                u: 42u128,
+                i: -42i128,
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&prost, &sval);
+    }
+
+    #[test]
+    fn num_128bit_large() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::Num128Bit {
+                u: u128::MAX.to_le_bytes().to_vec(),
+                i: i128::MIN.to_le_bytes().to_vec(),
+            }
+            .encode(&mut buf)
+            .unwrap();
+
+            buf
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct Num128Bit {
+                u: u128,
+                i: i128,
+            }
+
+            sval_protobuf::stream_to_protobuf(Num128Bit {
+                u: u128::MAX,
+                i: i128::MIN,
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&prost, &sval);
+    }
+
+    #[test]
     fn basic_non_contiguous_fields() {
         let prost = {
             let mut buf = Vec::new();
