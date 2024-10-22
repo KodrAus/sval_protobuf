@@ -344,7 +344,10 @@ impl ProtoBuf {
     contain a valid message.
     */
     pub fn pre_encoded(buf: impl Into<Box<[u8]>>) -> Self {
-        ProtoBuf { bytes: buf.into(), chunks: [].into() }
+        ProtoBuf {
+            bytes: buf.into(),
+            chunks: [].into(),
+        }
     }
 
     /**
