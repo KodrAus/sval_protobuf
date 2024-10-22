@@ -13,7 +13,7 @@ message Num128Bit {
     bytes i = 2;
 }
 
-message BasicScalar {
+message Scalar {
     double f64 = 1;
     float f32 = 2;
     int32 vi32 = 3;
@@ -31,26 +31,26 @@ message BasicScalar {
     bytes bin = 15;
 }
 
-message BasicNonContiguousFields {
+message NonContiguousFields {
     int32 id = 4;
     string content = 11;
     optional int32 index = 19;
 }
 
-message BasicOptional {
+message Optional {
   optional int32 a = 1;
 }
 
-message BasicRepeated {
+message Repeated {
   repeated string a = 3;
 }
 
-message BasicRepeatedPacked {
+message RepeatedPacked {
   repeated int32 a = 1 [packed = true];
 }
 
 message NestedInner {
-    BasicOptional a = 1;
+    Optional a = 1;
     bytes b = 2;
     int32 c = 3;
 }
@@ -61,21 +61,21 @@ message Nested {
     int32 c = 3;
 }
 
-enum Enum {
+enum EnumInner {
     A = 0;
     B = -3;
     C = -6;
 }
 
-message BasicEnum {
-    Enum value = 1;
+message Enum {
+    EnumInner value = 1;
 }
 
-message BasicMap {
+message Map {
     map<string, int32> a = 1;
 }
 
-message BasicOneof {
+message Oneof {
     oneof value {
         int32 number = 1;
         bool boolean = 2;
@@ -84,5 +84,5 @@ message BasicOneof {
 }
 
 message NestedOneof {
-    BasicOneof a = 1;
+    Oneof a = 1;
 }

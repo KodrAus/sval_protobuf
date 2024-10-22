@@ -111,11 +111,11 @@ mod tests {
     }
 
     #[test]
-    fn basic_scalar() {
+    fn scalar() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicScalar {
+            protos::cases::Scalar {
                 f64: 3.1415,
                 f32: 3.14,
                 vi32: i32::MIN,
@@ -193,7 +193,7 @@ mod tests {
 
         let (sval1, sval2) = {
             #[derive(Value)]
-            pub struct BasicScalar<'a> {
+            pub struct Scalar<'a> {
                 f64: f64,
                 f32: f32,
                 vi32: i32,
@@ -217,7 +217,7 @@ mod tests {
                 bin: &'a sval::BinarySlice,
             }
 
-            let buf = sval_protobuf::stream_to_protobuf(BasicScalar {
+            let buf = sval_protobuf::stream_to_protobuf(Scalar {
                 f64: 3.1415,
                 f32: 3.14,
                 vi32: i32::MIN,
@@ -249,11 +249,11 @@ mod tests {
     }
 
     #[test]
-    fn basic_scalar_default() {
+    fn scalar_optional_none() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicScalar {
+            protos::cases::Scalar {
                 f64: 0.0,
                 f32: 0.0,
                 vi32: 0,
@@ -278,46 +278,46 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicScalar<'a> {
-                f64: f64,
-                f32: f32,
-                vi32: i32,
-                vi64: i64,
-                vu32: u32,
-                vu64: u64,
+            pub struct Scalar<'a> {
+                f64: Option<f64>,
+                f32: Option<f32>,
+                vi32: Option<i32>,
+                vi64: Option<i64>,
+                vu32: Option<u32>,
+                vu64: Option<u64>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
-                si32: i32,
+                si32: Option<i32>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
-                si64: i64,
+                si64: Option<i64>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
-                fi32: i32,
+                fi32: Option<i32>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
-                fi64: i64,
+                fi64: Option<i64>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
-                sfi32: i32,
+                sfi32: Option<i32>,
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
-                sfi64: i64,
-                bool: bool,
-                sbin: &'a str,
-                bin: &'a sval::BinarySlice,
+                sfi64: Option<i64>,
+                bool: Option<bool>,
+                sbin: Option<&'a str>,
+                bin: Option<&'a sval::BinarySlice>,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicScalar {
-                f64: 0.0,
-                f32: 0.0,
-                vi32: 0,
-                vi64: 0,
-                vu32: 0,
-                vu64: 0,
-                si32: 0,
-                si64: 0,
-                fi32: 0,
-                fi64: 0,
-                sfi32: 0,
-                sfi64: 0,
-                bool: false,
-                sbin: "",
-                bin: sval::BinarySlice::new(b""),
+            sval_protobuf::stream_to_protobuf(Scalar {
+                f64: None,
+                f32: None,
+                vi32: None,
+                vi64: None,
+                vu32: None,
+                vu64: None,
+                si32: None,
+                si64: None,
+                fi32: None,
+                fi64: None,
+                sfi32: None,
+                sfi64: None,
+                bool: None,
+                sbin: None,
+                bin: None,
             })
             .to_vec()
             .into_owned()
@@ -327,7 +327,145 @@ mod tests {
     }
 
     #[test]
-    fn optional_scalar_default() {
+    fn scalar_optional_some() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::Scalar {
+                f64: 3.1415,
+                f32: 3.14,
+                vi32: i32::MIN,
+                vi64: i64::MIN,
+                vu32: u32::MAX,
+                vu64: u64::MAX,
+                si32: i32::MIN,
+                si64: i64::MIN,
+                fi32: u32::MAX,
+                fi64: u64::MAX,
+                sfi32: i32::MIN,
+                sfi64: i64::MIN,
+                bool: true,
+                sbin: "abc".to_string(),
+                bin: b"123".to_vec(),
+            }
+            .encode(&mut buf)
+            .unwrap();
+
+            buf
+        };
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_i64(1);
+            buf.push_i64_double(3.1415);
+
+            buf.push_field_i32(2);
+            buf.push_i32_float(3.14);
+
+            buf.push_field_varint(3);
+            buf.push_varint_sint64(i32::MIN as i64);
+
+            buf.push_field_varint(4);
+            buf.push_varint_sint64(i64::MIN);
+
+            buf.push_field_varint(5);
+            buf.push_varint_uint64(u32::MAX as u64);
+
+            buf.push_field_varint(6);
+            buf.push_varint_uint64(u64::MAX);
+
+            buf.push_field_varint(7);
+            buf.push_varint_sint64z(i32::MIN as i64);
+
+            buf.push_field_varint(8);
+            buf.push_varint_sint64z(i64::MIN);
+
+            buf.push_field_i32(9);
+            buf.push_i32_fixed32(u32::MAX);
+
+            buf.push_field_i64(10);
+            buf.push_i64_fixed64(u64::MAX);
+
+            buf.push_field_i32(11);
+            buf.push_i32_sfixed32(i32::MIN);
+
+            buf.push_field_i64(12);
+            buf.push_i64_sfixed64(i64::MIN);
+
+            buf.push_field_varint(13);
+            buf.push_varint_bool(true);
+
+            buf.push_field_len(14);
+            buf.push_len_varint_uint64(3);
+            buf.push(b"abc");
+
+            buf.push_field_len(15);
+            buf.push_len_varint_uint64(3);
+            buf.push(b"123");
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let (sval1, sval2) = {
+            #[derive(Value)]
+            pub struct Scalar<'a> {
+                f64: Option<f64>,
+                f32: Option<f32>,
+                vi32: Option<i32>,
+                vi64: Option<i64>,
+                vu32: Option<u32>,
+                vu64: Option<u64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
+                si32: Option<i32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
+                si64: Option<i64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
+                fi32: Option<u32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
+                fi64: Option<u64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
+                sfi32: Option<i32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
+                sfi64: Option<i64>,
+                bool: Option<bool>,
+                sbin: Option<&'a str>,
+                bin: Option<&'a sval::BinarySlice>,
+            }
+
+            let buf = sval_protobuf::stream_to_protobuf(Scalar {
+                f64: Some(3.1415),
+                f32: Some(3.14),
+                vi32: Some(i32::MIN),
+                vi64: Some(i64::MIN),
+                vu32: Some(u32::MAX),
+                vu64: Some(u64::MAX),
+                si32: Some(i32::MIN),
+                si64: Some(i64::MIN),
+                fi32: Some(u32::MAX),
+                fi64: Some(u64::MAX),
+                sfi32: Some(i32::MIN),
+                sfi64: Some(i64::MIN),
+                bool: Some(true),
+                sbin: Some("abc"),
+                bin: Some(sval::BinarySlice::new(b"123")),
+            });
+
+            let sval1 = buf.to_vec().into_owned();
+
+            let mut sval2 = Vec::new();
+            buf.into_cursor().copy_to_vec(&mut sval2);
+
+            (sval1, sval2)
+        };
+
+        assert_proto(&prost, &raw);
+        assert_proto(&prost, &sval1);
+        assert_proto(&prost, &sval2);
+    }
+
+    #[test]
+    fn scalar_optional_some_default() {
         let raw = {
             let mut buf = ProtoBufMut::new(());
 
@@ -383,7 +521,7 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicScalar<'a> {
+            pub struct Scalar<'a> {
                 f64: Option<f64>,
                 f32: Option<f32>,
                 vi32: Option<i32>,
@@ -407,7 +545,7 @@ mod tests {
                 bin: Option<&'a sval::BinarySlice>,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicScalar {
+            sval_protobuf::stream_to_protobuf(Scalar {
                 f64: Some(0.0),
                 f32: Some(0.0),
                 vi32: Some(0),
@@ -428,7 +566,7 @@ mod tests {
             .into_owned()
         };
 
-        let expected_prost = protos::cases::BasicScalar {
+        let expected_prost = protos::cases::Scalar {
             f64: 0.0,
             f32: 0.0,
             vi32: 0,
@@ -446,7 +584,7 @@ mod tests {
             bin: b"".to_vec(),
         };
 
-        let decoded_prost = protos::cases::BasicScalar::decode(std::io::Cursor::new(&sval))
+        let decoded_prost = protos::cases::Scalar::decode(std::io::Cursor::new(&sval))
             .expect("failed to decode prost");
 
         assert_eq!(expected_prost, decoded_prost);
@@ -521,11 +659,11 @@ mod tests {
     }
 
     #[test]
-    fn basic_non_contiguous_fields() {
+    fn non_contiguous_fields() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicNonContiguousFields {
+            protos::cases::NonContiguousFields {
                 id: 1,
                 content: "Some content".to_owned(),
                 index: Some(8),
@@ -555,7 +693,7 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicNonContiguousFields<'a> {
+            pub struct NonContiguousFields<'a> {
                 #[sval(index = 4)]
                 id: i32,
                 #[sval(index = 11)]
@@ -564,7 +702,7 @@ mod tests {
                 index: Option<i32>,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicNonContiguousFields {
+            sval_protobuf::stream_to_protobuf(NonContiguousFields {
                 id: 1,
                 content: "Some content",
                 index: Some(8),
@@ -578,83 +716,11 @@ mod tests {
     }
 
     #[test]
-    fn basic_optional() {
+    fn repeated() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicOptional { a: Some(1) }
-                .encode(&mut buf)
-                .unwrap();
-
-            buf
-        };
-
-        let raw = {
-            let mut buf = ProtoBufMut::new(());
-
-            buf.push_field_varint(1);
-            buf.push_varint_uint64(1);
-
-            buf.freeze().to_vec().into_owned()
-        };
-
-        let sval = {
-            #[derive(Value)]
-            pub struct BasicOptional {
-                a: Option<i32>,
-            }
-
-            sval_protobuf::stream_to_protobuf(BasicOptional { a: Some(1) })
-                .to_vec()
-                .into_owned()
-        };
-
-        assert_proto(&prost, &raw);
-        assert_proto(&prost, &sval);
-    }
-
-    #[test]
-    fn optional_default() {
-        let prost = {
-            let mut buf = Vec::new();
-
-            protos::cases::BasicOptional { a: Some(0) }
-                .encode(&mut buf)
-                .unwrap();
-
-            buf
-        };
-
-        let raw = {
-            let mut buf = ProtoBufMut::new(());
-
-            buf.push_field_varint(1);
-            buf.push_varint_uint64(0);
-
-            buf.freeze().to_vec().into_owned()
-        };
-
-        let sval = {
-            #[derive(Value)]
-            pub struct BasicOptional {
-                a: Option<i32>,
-            }
-
-            sval_protobuf::stream_to_protobuf(BasicOptional { a: Some(0) })
-                .to_vec()
-                .into_owned()
-        };
-
-        assert_proto(&prost, &raw);
-        assert_proto(&prost, &sval);
-    }
-
-    #[test]
-    fn basic_repeated() {
-        let prost = {
-            let mut buf = Vec::new();
-
-            protos::cases::BasicRepeated {
+            protos::cases::Repeated {
                 a: vec!["1".to_owned(), "2".to_owned(), "3".to_owned()],
             }
             .encode(&mut buf)
@@ -686,12 +752,12 @@ mod tests {
 
         let sval1 = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(index = 3)]
                 a: &'a [&'a str],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated {
+            sval_protobuf::stream_to_protobuf(Repeated {
                 a: &["1", "2", "3"],
             })
             .to_vec()
@@ -700,12 +766,12 @@ mod tests {
 
         let sval2 = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(index = 3)]
                 a: &'a [Option<&'a str>],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated {
+            sval_protobuf::stream_to_protobuf(Repeated {
                 a: &[None, Some("1"), None, Some("2"), Some("3"), None, None],
             })
             .to_vec()
@@ -718,11 +784,11 @@ mod tests {
     }
 
     #[test]
-    fn optional_repeated_default() {
+    fn repeated_default() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicRepeated {
+            protos::cases::Repeated {
                 a: vec!["".to_owned(), "".to_owned(), "".to_owned()],
             }
             .encode(&mut buf)
@@ -754,25 +820,25 @@ mod tests {
 
         let sval1 = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(index = 3)]
                 a: &'a [&'a str],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated { a: &["", "", ""] })
+            sval_protobuf::stream_to_protobuf(Repeated { a: &["", "", ""] })
                 .to_vec()
                 .into_owned()
         };
 
         let sval2 = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(index = 3)]
                 a: &'a [Option<&'a str>],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated {
-                a: &[None, Some(""), None, Some(""), Some(""), None, None],
+            sval_protobuf::stream_to_protobuf(Repeated {
+                a: &[Some(""), Some(""), Some("")],
             })
             .to_vec()
             .into_owned()
@@ -784,11 +850,36 @@ mod tests {
     }
 
     #[test]
-    fn basic_repeated_packed() {
+    fn repeated_optional_none() {
+        let raw = {
+            let buf = ProtoBufMut::new(());
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct Repeated<'a> {
+                #[sval(index = 3)]
+                a: &'a [Option<&'a str>],
+            }
+
+            sval_protobuf::stream_to_protobuf(Repeated {
+                a: &[None, None, None],
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
+    fn repeated_packed() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicRepeatedPacked { a: vec![1, 2, 3] }
+            protos::cases::RepeatedPacked { a: vec![1, 2, 3] }
                 .encode(&mut buf)
                 .unwrap();
 
@@ -810,12 +901,12 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_LEN_PACKED")]
                 a: &'a [i32],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated { a: &[1, 2, 3] })
+            sval_protobuf::stream_to_protobuf(Repeated { a: &[1, 2, 3] })
                 .to_vec()
                 .into_owned()
         };
@@ -825,11 +916,11 @@ mod tests {
     }
 
     #[test]
-    fn optional_repeated_packed_default() {
+    fn repeated_packed_default() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicRepeatedPacked { a: vec![0, 0, 0] }
+            protos::cases::RepeatedPacked { a: vec![0, 0, 0] }
                 .encode(&mut buf)
                 .unwrap();
 
@@ -851,12 +942,12 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicRepeated<'a> {
+            pub struct Repeated<'a> {
                 #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_LEN_PACKED")]
                 a: &'a [i32],
             }
 
-            sval_protobuf::stream_to_protobuf(BasicRepeated { a: &[0, 0, 0] })
+            sval_protobuf::stream_to_protobuf(Repeated { a: &[0, 0, 0] })
                 .to_vec()
                 .into_owned()
         };
@@ -866,11 +957,11 @@ mod tests {
     }
 
     #[test]
-    fn basic_map() {
+    fn map() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicMap {
+            protos::cases::Map {
                 a: {
                     let mut map = BTreeMap::new();
                     map.insert("a".to_owned(), 1);
@@ -923,11 +1014,11 @@ mod tests {
 
         let sval = {
             #[derive(Value)]
-            pub struct BasicMap<'a> {
+            pub struct Map<'a> {
                 a: &'a sval::MapSlice<&'a str, i32>,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicMap {
+            sval_protobuf::stream_to_protobuf(Map {
                 a: sval::MapSlice::new(&[("a", 1), ("b", 2), ("c", 3)]),
             })
             .to_vec()
@@ -939,12 +1030,46 @@ mod tests {
     }
 
     #[test]
-    fn basic_enum() {
+    fn map_default() {
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_len(1);
+            buf.begin_len(());
+            buf.push_field_len(1);
+            buf.begin_len(());
+            buf.push(b"");
+            buf.end_len();
+            buf.push_field_varint(2);
+            buf.push_varint_uint64(0);
+            buf.end_len();
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct Map<'a> {
+                a: &'a sval::MapSlice<&'a str, i32>,
+            }
+
+            sval_protobuf::stream_to_protobuf(Map {
+                a: sval::MapSlice::new(&[("", 0)]),
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
+    fn r#enum() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicEnum {
-                value: protos::cases::Enum::B as i32,
+            protos::cases::Enum {
+                value: protos::cases::EnumInner::B as i32,
             }
             .encode(&mut buf)
             .unwrap();
@@ -965,20 +1090,22 @@ mod tests {
             #[derive(Value)]
             #[repr(i32)]
             #[allow(dead_code)]
-            pub enum Enum {
+            pub enum EnumInner {
                 A = -1,
                 B = -3,
                 C = -6,
             }
 
             #[derive(Value)]
-            pub struct BasicEnum {
-                value: Enum,
+            pub struct Enum {
+                value: EnumInner,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicEnum { value: Enum::B })
-                .to_vec()
-                .into_owned()
+            sval_protobuf::stream_to_protobuf(Enum {
+                value: EnumInner::B,
+            })
+            .to_vec()
+            .into_owned()
         };
 
         assert_proto(&prost, &raw);
@@ -986,12 +1113,12 @@ mod tests {
     }
 
     #[test]
-    fn basic_oneof() {
+    fn oneof() {
         let prost = {
             let mut buf = Vec::new();
 
-            protos::cases::BasicOneof {
-                value: Some(protos::cases::basic_oneof::Value::Boolean(true)),
+            protos::cases::Oneof {
+                value: Some(protos::cases::oneof::Value::Boolean(true)),
             }
             .encode(&mut buf)
             .unwrap();
@@ -1018,12 +1145,12 @@ mod tests {
             }
 
             #[derive(Value)]
-            pub struct BasicOneof<'a> {
+            pub struct Oneof<'a> {
                 #[sval(flatten)]
                 value: Value<'a>,
             }
 
-            sval_protobuf::stream_to_protobuf(BasicOneof {
+            sval_protobuf::stream_to_protobuf(Oneof {
                 value: Value::Boolean(true),
             })
             .to_vec()
@@ -1050,13 +1177,77 @@ mod tests {
     }
 
     #[test]
-    fn nested_oneof() {
+    fn oneof_default() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::Oneof {
+                value: Some(protos::cases::oneof::Value::Boolean(false)),
+            }
+            .encode(&mut buf)
+            .unwrap();
+
+            buf
+        };
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_varint(2);
+            buf.push_varint_bool(false);
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval1 = {
+            #[derive(Value)]
+            #[allow(dead_code)]
+            pub enum Value<'a> {
+                Number(i32),
+                Boolean(bool),
+                Text(&'a str),
+            }
+
+            #[derive(Value)]
+            pub struct Oneof<'a> {
+                #[sval(flatten)]
+                value: Value<'a>,
+            }
+
+            sval_protobuf::stream_to_protobuf(Oneof {
+                value: Value::Boolean(false),
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        let sval2 = {
+            #[derive(Value)]
+            #[allow(dead_code)]
+            pub enum Value<'a> {
+                Number(i32),
+                Boolean(bool),
+                Text(&'a str),
+            }
+
+            sval_protobuf::stream_to_protobuf(Value::Boolean(false))
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&prost, &raw);
+        assert_proto(&prost, &sval1);
+        assert_proto(&prost, &sval2);
+    }
+
+    #[test]
+    fn oneof_nested() {
         let prost = {
             let mut buf = Vec::new();
 
             protos::cases::NestedOneof {
-                a: Some(protos::cases::BasicOneof {
-                    value: Some(protos::cases::basic_oneof::Value::Boolean(true)),
+                a: Some(protos::cases::Oneof {
+                    value: Some(protos::cases::oneof::Value::Boolean(true)),
                 }),
             }
             .encode(&mut buf)
@@ -1087,18 +1278,18 @@ mod tests {
             }
 
             #[derive(Value)]
-            pub struct BasicOneof<'a> {
+            pub struct Oneof<'a> {
                 #[sval(flatten)]
                 value: Value<'a>,
             }
 
             #[derive(Value)]
             pub struct NestedOneof<'a> {
-                a: BasicOneof<'a>,
+                a: Oneof<'a>,
             }
 
             sval_protobuf::stream_to_protobuf(NestedOneof {
-                a: BasicOneof {
+                a: Oneof {
                     value: Value::Boolean(true),
                 },
             })
@@ -1139,7 +1330,7 @@ mod tests {
 
             protos::cases::Nested {
                 a: Some(protos::cases::NestedInner {
-                    a: Some(protos::cases::BasicOptional { a: Some(1) }),
+                    a: Some(protos::cases::Optional { a: Some(1) }),
                     b: b"Some bytes".to_vec(),
                     c: 2,
                 }),
@@ -1201,19 +1392,19 @@ mod tests {
 
             #[derive(Value)]
             pub struct NestedInner<'a> {
-                a: BasicOptional,
+                a: Optional,
                 b: &'a sval::BinarySlice,
                 c: i32,
             }
 
             #[derive(Value)]
-            pub struct BasicOptional {
+            pub struct Optional {
                 a: Option<i32>,
             }
 
             sval_protobuf::stream_to_protobuf(Nested {
                 a: NestedInner {
-                    a: BasicOptional { a: Some(1) },
+                    a: Optional { a: Some(1) },
                     b: sval::BinarySlice::new(b"Some bytes"),
                     c: 2,
                 },
