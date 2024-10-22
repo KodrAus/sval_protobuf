@@ -1241,6 +1241,54 @@ mod tests {
     }
 
     #[test]
+    fn oneof_optional_none() {
+        let raw = {
+            let buf = ProtoBufMut::new(());
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval1 = {
+            #[derive(Value)]
+            #[allow(dead_code)]
+            pub enum Value<'a> {
+                Number(Option<i32>),
+                Boolean(Option<bool>),
+                Text(Option<&'a str>),
+            }
+
+            #[derive(Value)]
+            pub struct Oneof<'a> {
+                #[sval(flatten)]
+                value: Value<'a>,
+            }
+
+            sval_protobuf::stream_to_protobuf(Oneof {
+                value: Value::Boolean(None),
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        let sval2 = {
+            #[derive(Value)]
+            #[allow(dead_code)]
+            pub enum Value<'a> {
+                Number(Option<i32>),
+                Boolean(Option<bool>),
+                Text(Option<&'a str>),
+            }
+
+            sval_protobuf::stream_to_protobuf(Value::Boolean(None))
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&raw, &sval1);
+        assert_proto(&raw, &sval2);
+    }
+
+    #[test]
     fn oneof_nested() {
         let prost = {
             let mut buf = Vec::new();
