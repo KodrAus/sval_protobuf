@@ -4,13 +4,12 @@ pub mod data_sval;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::assert_proto;
 
     use ::prost::Message;
 
     #[test]
     fn export_logs_service_request() {
-        let prost = { data_prost::export_logs_service_request().encode_to_vec() };
+        let prost = data_prost::export_logs_service_request();
 
         let sval1 = {
             sval_protobuf::stream_to_protobuf(data_sval::export_logs_service_request())
@@ -25,7 +24,10 @@ mod tests {
             buf
         };
 
-        assert_proto(&prost, &sval1);
-        assert_proto(&prost, &sval2);
+        let decoded_prost1 = crate::protos::opentelemetry::proto::collector::logs::v1::ExportLogsServiceRequest::decode(std::io::Cursor::new(&sval1)).expect("failed to decode");
+        let decoded_prost2 = crate::protos::opentelemetry::proto::collector::logs::v1::ExportLogsServiceRequest::decode(std::io::Cursor::new(&sval2)).expect("failed to decode");
+
+        assert_eq!(prost, decoded_prost1);
+        assert_eq!(prost, decoded_prost2);
     }
 }

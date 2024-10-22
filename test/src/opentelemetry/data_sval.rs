@@ -13,7 +13,7 @@ pub struct ResourceLogs<'a> {
     #[sval(index = 2)]
     scope_logs: &'a [ScopeLogs<'a>],
     #[sval(index = 3)]
-    schema_url: Option<&'a str>,
+    schema_url: &'a str,
 }
 
 #[derive(Value)]
@@ -21,7 +21,7 @@ pub struct Resource<'a> {
     #[sval(index = 1)]
     attributes: &'a [KeyValue<'a>],
     #[sval(index = 2)]
-    dropped_attribute_count: Option<u32>,
+    dropped_attribute_count: u32,
 }
 
 #[derive(Value)]
@@ -31,7 +31,7 @@ pub struct ScopeLogs<'a> {
     #[sval(index = 2)]
     log_records: &'a [LogRecord<'a>],
     #[sval(index = 3)]
-    schema_url: Option<&'a str>,
+    schema_url: &'a str,
 }
 
 #[derive(Value)]
@@ -103,9 +103,9 @@ pub struct LogRecord<'a> {
     #[sval(index = 6)]
     attributes: &'a [KeyValue<'a>],
     #[sval(index = 7)]
-    dropped_attributes_count: Option<u32>,
+    dropped_attributes_count: u32,
     #[sval(index = 8, data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
-    flags: Option<u32>,
+    flags: u32,
     #[sval(index = 9)]
     trace_id: Option<&'a sval::BinarySlice>,
     #[sval(index = 10)]
@@ -170,8 +170,8 @@ pub const fn log_record1() -> LogRecord<'static> {
                 value: Some(AnyValue::String("Roastery.Api.OrdersController")),
             },
         ],
-        dropped_attributes_count: None,
-        flags: None,
+        dropped_attributes_count: 0,
+        flags: 0,
         trace_id: None,
         span_id: None,
     }
@@ -230,8 +230,8 @@ pub const fn log_record2() -> LogRecord<'static> {
                 value: Some(AnyValue::String("insert into roastery.orderitem (orderid, productid) values ('order-724537b0f2348b2d60aabf', 'product-cvsad9033') returning id;")),
             },
         ],
-        dropped_attributes_count: None,
-        flags: None,
+        dropped_attributes_count: 0,
+        flags: 0,
         trace_id: None,
         span_id: None,
     }
@@ -282,8 +282,8 @@ pub const fn log_record3() -> LogRecord<'static> {
                 value: Some(AnyValue::Int(500)),
             },
         ],
-        dropped_attributes_count: None,
-        flags: None,
+        dropped_attributes_count: 0,
+        flags: 0,
         trace_id: None,
         span_id: None,
     }
@@ -297,18 +297,18 @@ pub fn export_logs_service_request() -> ExportLogsServiceRequest<'static> {
                     key: "service.name",
                     value: Some(AnyValue::String("sval_protobuf_tests")),
                 }],
-                dropped_attribute_count: None,
+                dropped_attribute_count: 0,
             }),
             scope_logs: {
                 const SCOPE_LOGS: &'static [ScopeLogs<'static>] = &[ScopeLogs {
                     scope: None,
                     log_records: &[log_record1(), log_record2(), log_record3()],
-                    schema_url: None,
+                    schema_url: "",
                 }];
 
                 SCOPE_LOGS
             },
-            schema_url: None,
+            schema_url: "",
         }],
     }
 }
