@@ -522,22 +522,16 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
     fn tagged_end(
         &mut self,
-        tag: Option<&Tag>,
+        _: Option<&Tag>,
         _: Option<&Label>,
         index: Option<&Index>,
     ) -> sval::Result {
         self.internally_tagged_end(index);
 
         self.field.ty = FieldType::Any;
+        self.field.default_null = true;
 
-        match tag {
-            Some(&sval::tags::RUST_OPTION_SOME) => {
-                self.field.default_null = true;
-
-                Ok(())
-            }
-            _ => Ok(()),
-        }
+        Ok(())
     }
 
     fn tag(&mut self, tag: Option<&Tag>, _: Option<&Label>, index: Option<&Index>) -> sval::Result {
