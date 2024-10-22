@@ -13,7 +13,6 @@ pub fn stream_to_protobuf(v: impl sval::Value) -> ProtoBuf {
         buf: ProtoBufMut::new(1),
         field: FieldState {
             number: 1,
-            default_null: true,
             ty: FieldType::Root,
         },
         len: LenState {
@@ -41,7 +40,6 @@ struct ProtoBufStream {
 #[derive(Debug)]
 struct FieldState {
     number: u64,
-    default_null: bool,
     ty: FieldType,
 }
 
@@ -124,7 +122,6 @@ impl ProtoBufStream {
             self.field = FieldState {
                 ty: FieldType::Any,
                 number: 0,
-                default_null: true,
             }
         }
     }
@@ -143,14 +140,10 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn bool(&mut self, value: bool) -> sval::Result {
-        if self.field.default_null && value == false {
-            self.null()
-        } else {
-            self.field.push_if_set(WireType::VarInt, &mut self.buf);
-            self.buf.push_varint_bool(value);
+        self.field.push_if_set(WireType::VarInt, &mut self.buf);
+        self.buf.push_varint_bool(value);
 
-            Ok(())
-        }
+        Ok(())
     }
 
     fn text_begin(&mut self, num_bytes: Option<usize>) -> sval::Result {
@@ -169,16 +162,12 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
         if let Some(num_bytes) = num_bytes {
             self.len.is_prefixed = true;
 
-            if self.field.default_null && num_bytes == 0 {
-                self.null()
-            } else {
-                self.buf.reserve_bytes(num_bytes);
+            self.buf.reserve_bytes(num_bytes);
 
-                self.field.push_if_set(WireType::Len, &mut self.buf);
-                self.buf.push_len_varint_uint64(num_bytes as u64);
+            self.field.push_if_set(WireType::Len, &mut self.buf);
+            self.buf.push_len_varint_uint64(num_bytes as u64);
 
-                Ok(())
-            }
+            Ok(())
         } else {
             self.field.push_if_set(WireType::Len, &mut self.buf);
             self.buf.begin_len(1);
@@ -206,43 +195,35 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn u32(&mut self, value: u32) -> sval::Result {
-        if self.field.default_null && value == 0 {
-            self.null()
-        } else {
-            match self.field.ty {
-                FieldType::I32 => {
-                    self.field.push_if_set(WireType::I32, &mut self.buf);
-                    self.buf.push_i32_fixed32(value);
+        match self.field.ty {
+            FieldType::I32 => {
+                self.field.push_if_set(WireType::I32, &mut self.buf);
+                self.buf.push_i32_fixed32(value);
 
-                    Ok(())
-                }
-                _ => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_uint64(value as u64);
+                Ok(())
+            }
+            _ => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_uint64(value as u64);
 
-                    Ok(())
-                }
+                Ok(())
             }
         }
     }
 
     fn u64(&mut self, value: u64) -> sval::Result {
-        if self.field.default_null && value == 0 {
-            self.null()
-        } else {
-            match self.field.ty {
-                FieldType::I64 => {
-                    self.field.push_if_set(WireType::I64, &mut self.buf);
-                    self.buf.push_i64_fixed64(value);
+        match self.field.ty {
+            FieldType::I64 => {
+                self.field.push_if_set(WireType::I64, &mut self.buf);
+                self.buf.push_i64_fixed64(value);
 
-                    Ok(())
-                }
-                _ => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_uint64(value);
+                Ok(())
+            }
+            _ => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_uint64(value);
 
-                    Ok(())
-                }
+                Ok(())
             }
         }
     }
@@ -256,55 +237,47 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn i32(&mut self, value: i32) -> sval::Result {
-        if self.field.default_null && value == 0 {
-            self.null()
-        } else {
-            match self.field.ty {
-                FieldType::I32 => {
-                    self.field.push_if_set(WireType::I32, &mut self.buf);
-                    self.buf.push_i32_sfixed32(value);
+        match self.field.ty {
+            FieldType::I32 => {
+                self.field.push_if_set(WireType::I32, &mut self.buf);
+                self.buf.push_i32_sfixed32(value);
 
-                    Ok(())
-                }
-                FieldType::Signed => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_sint64z(value as i64);
+                Ok(())
+            }
+            FieldType::Signed => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_sint64z(value as i64);
 
-                    Ok(())
-                }
-                _ => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_sint64(value as i64);
+                Ok(())
+            }
+            _ => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_sint64(value as i64);
 
-                    Ok(())
-                }
+                Ok(())
             }
         }
     }
 
     fn i64(&mut self, value: i64) -> sval::Result {
-        if self.field.default_null && value == 0 {
-            self.null()
-        } else {
-            match self.field.ty {
-                FieldType::I64 => {
-                    self.field.push_if_set(WireType::I64, &mut self.buf);
-                    self.buf.push_i64_sfixed64(value);
+        match self.field.ty {
+            FieldType::I64 => {
+                self.field.push_if_set(WireType::I64, &mut self.buf);
+                self.buf.push_i64_sfixed64(value);
 
-                    Ok(())
-                }
-                FieldType::Signed => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_sint64z(value);
+                Ok(())
+            }
+            FieldType::Signed => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_sint64z(value);
 
-                    Ok(())
-                }
-                _ => {
-                    self.field.push_if_set(WireType::VarInt, &mut self.buf);
-                    self.buf.push_varint_sint64(value);
+                Ok(())
+            }
+            _ => {
+                self.field.push_if_set(WireType::VarInt, &mut self.buf);
+                self.buf.push_varint_sint64(value);
 
-                    Ok(())
-                }
+                Ok(())
             }
         }
     }
@@ -318,35 +291,21 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn f32(&mut self, value: f32) -> sval::Result {
-        if self.field.default_null && value == 0.0 {
-            self.null()
-        } else {
-            self.field.push_if_set(WireType::I32, &mut self.buf);
-            self.buf.push_i32_float(value);
+        self.field.push_if_set(WireType::I32, &mut self.buf);
+        self.buf.push_i32_float(value);
 
-            Ok(())
-        }
+        Ok(())
     }
 
     fn f64(&mut self, value: f64) -> sval::Result {
-        if self.field.default_null && value == 0.0 {
-            self.null()
-        } else {
-            self.field.push_if_set(WireType::I64, &mut self.buf);
-            self.buf.push_i64_double(value);
+        self.field.push_if_set(WireType::I64, &mut self.buf);
+        self.buf.push_i64_double(value);
 
-            Ok(())
-        }
+        Ok(())
     }
 
     fn map_begin(&mut self, num_entries: Option<usize>) -> sval::Result {
         if let Some(num_entries) = num_entries {
-            if self.field.default_null && num_entries == 0 {
-                self.len.is_prefixed = true;
-
-                return self.null();
-            }
-
             self.buf.reserve(num_entries * 2);
         }
 
@@ -394,12 +353,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
     fn seq_begin(&mut self, num_entries: Option<usize>) -> sval::Result {
         if let Some(num_entries) = num_entries {
-            if self.field.default_null && num_entries == 0 {
-                self.len.is_prefixed = true;
-
-                return self.null();
-            }
-
             self.buf.reserve(num_entries);
         }
 
@@ -419,8 +372,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn seq_value_begin(&mut self) -> sval::Result {
-        self.field.default_null = false;
-
         if self.len.is_packed {
             Ok(())
         } else {
@@ -432,8 +383,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn seq_value_end(&mut self) -> sval::Result {
-        self.field.default_null = true;
-
         Ok(())
     }
 
@@ -511,11 +460,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
                 Ok(())
             }
-            Some(&sval::tags::RUST_OPTION_SOME) => {
-                self.field.default_null = false;
-
-                Ok(())
-            }
             _ => Ok(()),
         }
     }
@@ -529,7 +473,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
         self.internally_tagged_end(index);
 
         self.field.ty = FieldType::Any;
-        self.field.default_null = true;
 
         Ok(())
     }
@@ -574,7 +517,6 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
     fn tuple_value_begin(&mut self, _: Option<&Tag>, index: &Index) -> sval::Result {
         self.field_begin();
-
         self.field.set(index);
 
         Ok(())
