@@ -327,6 +327,134 @@ mod tests {
     }
 
     #[test]
+    fn optional_scalar_default() {
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_i64(1);
+            buf.push_i64_double(0.0);
+
+            buf.push_field_i32(2);
+            buf.push_i32_float(0.0);
+
+            buf.push_field_varint(3);
+            buf.push_varint_sint64(0);
+
+            buf.push_field_varint(4);
+            buf.push_varint_sint64(0);
+
+            buf.push_field_varint(5);
+            buf.push_varint_uint64(0);
+
+            buf.push_field_varint(6);
+            buf.push_varint_uint64(0);
+
+            buf.push_field_varint(7);
+            buf.push_varint_sint64z(0);
+
+            buf.push_field_varint(8);
+            buf.push_varint_sint64z(0);
+
+            buf.push_field_i32(9);
+            buf.push_i32_fixed32(0);
+
+            buf.push_field_i64(10);
+            buf.push_i64_fixed64(0);
+
+            buf.push_field_i32(11);
+            buf.push_i32_sfixed32(0);
+
+            buf.push_field_i64(12);
+            buf.push_i64_sfixed64(0);
+
+            buf.push_field_varint(13);
+            buf.push_varint_bool(false);
+
+            buf.push_field_len(14);
+            buf.push_len_varint_uint64(0);
+            buf.push(b"");
+
+            buf.push_field_len(15);
+            buf.push_len_varint_uint64(0);
+            buf.push(b"");
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct BasicScalar<'a> {
+                f64: Option<f64>,
+                f32: Option<f32>,
+                vi32: Option<i32>,
+                vi64: Option<i64>,
+                vu32: Option<u32>,
+                vu64: Option<u64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
+                si32: Option<i32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_VARINT_SIGNED")]
+                si64: Option<i64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
+                fi32: Option<i32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
+                fi64: Option<i64>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I32")]
+                sfi32: Option<i32>,
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_I64")]
+                sfi64: Option<i64>,
+                bool: Option<bool>,
+                sbin: Option<&'a str>,
+                bin: Option<&'a sval::BinarySlice>,
+            }
+
+            sval_protobuf::stream_to_protobuf(BasicScalar {
+                f64: Some(0.0),
+                f32: Some(0.0),
+                vi32: Some(0),
+                vi64: Some(0),
+                vu32: Some(0),
+                vu64: Some(0),
+                si32: Some(0),
+                si64: Some(0),
+                fi32: Some(0),
+                fi64: Some(0),
+                sfi32: Some(0),
+                sfi64: Some(0),
+                bool: Some(false),
+                sbin: Some(""),
+                bin: Some(sval::BinarySlice::new(b"")),
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        let expected_prost = protos::cases::BasicScalar {
+            f64: 0.0,
+            f32: 0.0,
+            vi32: 0,
+            vi64: 0,
+            vu32: 0,
+            vu64: 0,
+            si32: 0,
+            si64: 0,
+            fi32: 0,
+            fi64: 0,
+            sfi32: 0,
+            sfi64: 0,
+            bool: false,
+            sbin: "".to_string(),
+            bin: b"".to_vec(),
+        };
+
+        let decoded_prost = protos::cases::BasicScalar::decode(std::io::Cursor::new(&sval))
+            .expect("failed to decode prost");
+
+        assert_eq!(expected_prost, decoded_prost);
+
+        assert_proto(&raw, &sval);
+    }
+
+    #[test]
     fn num_128bit_small() {
         let prost = {
             let mut buf = Vec::new();
@@ -486,6 +614,42 @@ mod tests {
     }
 
     #[test]
+    fn optional_default() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::BasicOptional { a: Some(0) }
+                .encode(&mut buf)
+                .unwrap();
+
+            buf
+        };
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_varint(1);
+            buf.push_varint_uint64(0);
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct BasicOptional {
+                a: Option<i32>,
+            }
+
+            sval_protobuf::stream_to_protobuf(BasicOptional { a: Some(0) })
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&prost, &raw);
+        assert_proto(&prost, &sval);
+    }
+
+    #[test]
     fn basic_repeated() {
         let prost = {
             let mut buf = Vec::new();
@@ -554,6 +718,72 @@ mod tests {
     }
 
     #[test]
+    fn optional_repeated_default() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::BasicRepeated {
+                a: vec!["".to_owned(), "".to_owned(), "".to_owned()],
+            }
+            .encode(&mut buf)
+            .unwrap();
+
+            buf
+        };
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_len(3);
+            buf.begin_len(());
+            buf.push(b"");
+            buf.end_len();
+
+            buf.push_field_len(3);
+            buf.begin_len(());
+            buf.push(b"");
+            buf.end_len();
+
+            buf.push_field_len(3);
+            buf.begin_len(());
+            buf.push(b"");
+            buf.end_len();
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval1 = {
+            #[derive(Value)]
+            pub struct BasicRepeated<'a> {
+                #[sval(index = 3)]
+                a: &'a [&'a str],
+            }
+
+            sval_protobuf::stream_to_protobuf(BasicRepeated { a: &["", "", ""] })
+                .to_vec()
+                .into_owned()
+        };
+
+        let sval2 = {
+            #[derive(Value)]
+            pub struct BasicRepeated<'a> {
+                #[sval(index = 3)]
+                a: &'a [Option<&'a str>],
+            }
+
+            sval_protobuf::stream_to_protobuf(BasicRepeated {
+                a: &[None, Some(""), None, Some(""), Some(""), None, None],
+            })
+            .to_vec()
+            .into_owned()
+        };
+
+        assert_proto(&prost, &raw);
+        assert_proto(&prost, &sval1);
+        assert_proto(&prost, &sval2);
+    }
+
+    #[test]
     fn basic_repeated_packed() {
         let prost = {
             let mut buf = Vec::new();
@@ -586,6 +816,47 @@ mod tests {
             }
 
             sval_protobuf::stream_to_protobuf(BasicRepeated { a: &[1, 2, 3] })
+                .to_vec()
+                .into_owned()
+        };
+
+        assert_proto(&prost, &raw);
+        assert_proto(&prost, &sval);
+    }
+
+    #[test]
+    fn optional_repeated_packed_default() {
+        let prost = {
+            let mut buf = Vec::new();
+
+            protos::cases::BasicRepeatedPacked { a: vec![0, 0, 0] }
+                .encode(&mut buf)
+                .unwrap();
+
+            buf
+        };
+
+        let raw = {
+            let mut buf = ProtoBufMut::new(());
+
+            buf.push_field_len(1);
+            buf.begin_len(());
+            buf.push_varint_uint64(0);
+            buf.push_varint_uint64(0);
+            buf.push_varint_uint64(0);
+            buf.end_len();
+
+            buf.freeze().to_vec().into_owned()
+        };
+
+        let sval = {
+            #[derive(Value)]
+            pub struct BasicRepeated<'a> {
+                #[sval(data_tag = "sval_protobuf::tags::PROTOBUF_LEN_PACKED")]
+                a: &'a [i32],
+            }
+
+            sval_protobuf::stream_to_protobuf(BasicRepeated { a: &[0, 0, 0] })
                 .to_vec()
                 .into_owned()
         };

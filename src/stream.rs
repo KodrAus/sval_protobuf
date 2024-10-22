@@ -13,6 +13,7 @@ pub fn stream_to_protobuf(v: impl sval::Value) -> ProtoBuf {
         buf: ProtoBufMut::new(1),
         field: FieldState {
             number: 1,
+            default_null: true,
             ty: FieldType::Root,
         },
         len: LenState {
@@ -40,6 +41,7 @@ struct ProtoBufStream {
 #[derive(Debug)]
 struct FieldState {
     number: u64,
+    default_null: bool,
     ty: FieldType,
 }
 
@@ -122,6 +124,7 @@ impl ProtoBufStream {
             self.field = FieldState {
                 ty: FieldType::Any,
                 number: 0,
+                default_null: true,
             }
         }
     }
@@ -140,11 +143,11 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn bool(&mut self, value: bool) -> sval::Result {
-        if value == false {
+        if self.field.default_null && value == false {
             self.null()
         } else {
             self.field.push_if_set(WireType::VarInt, &mut self.buf);
-            self.buf.push_varint_bool(true);
+            self.buf.push_varint_bool(value);
 
             Ok(())
         }
@@ -166,7 +169,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
         if let Some(num_bytes) = num_bytes {
             self.len.is_prefixed = true;
 
-            if num_bytes == 0 {
+            if self.field.default_null && num_bytes == 0 {
                 self.null()
             } else {
                 self.buf.reserve_bytes(num_bytes);
@@ -203,7 +206,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn u32(&mut self, value: u32) -> sval::Result {
-        if value == 0 {
+        if self.field.default_null && value == 0 {
             self.null()
         } else {
             match self.field.ty {
@@ -224,7 +227,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn u64(&mut self, value: u64) -> sval::Result {
-        if value == 0 {
+        if self.field.default_null && value == 0 {
             self.null()
         } else {
             match self.field.ty {
@@ -253,7 +256,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn i32(&mut self, value: i32) -> sval::Result {
-        if value == 0 {
+        if self.field.default_null && value == 0 {
             self.null()
         } else {
             match self.field.ty {
@@ -280,7 +283,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn i64(&mut self, value: i64) -> sval::Result {
-        if value == 0 {
+        if self.field.default_null && value == 0 {
             self.null()
         } else {
             match self.field.ty {
@@ -315,7 +318,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn f32(&mut self, value: f32) -> sval::Result {
-        if value == 0.0 {
+        if self.field.default_null && value == 0.0 {
             self.null()
         } else {
             self.field.push_if_set(WireType::I32, &mut self.buf);
@@ -326,7 +329,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn f64(&mut self, value: f64) -> sval::Result {
-        if value == 0.0 {
+        if self.field.default_null && value == 0.0 {
             self.null()
         } else {
             self.field.push_if_set(WireType::I64, &mut self.buf);
@@ -338,7 +341,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
     fn map_begin(&mut self, num_entries: Option<usize>) -> sval::Result {
         if let Some(num_entries) = num_entries {
-            if num_entries == 0 {
+            if self.field.default_null && num_entries == 0 {
                 self.len.is_prefixed = true;
 
                 return self.null();
@@ -391,7 +394,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
     fn seq_begin(&mut self, num_entries: Option<usize>) -> sval::Result {
         if let Some(num_entries) = num_entries {
-            if num_entries == 0 {
+            if self.field.default_null && num_entries == 0 {
                 self.len.is_prefixed = true;
 
                 return self.null();
@@ -416,6 +419,8 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn seq_value_begin(&mut self) -> sval::Result {
+        self.field.default_null = false;
+
         if self.len.is_packed {
             Ok(())
         } else {
@@ -427,6 +432,8 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn seq_value_end(&mut self) -> sval::Result {
+        self.field.default_null = true;
+
         Ok(())
     }
 
@@ -504,6 +511,11 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
 
                 Ok(())
             }
+            Some(&sval::tags::RUST_OPTION_SOME) => {
+                self.field.default_null = false;
+
+                Ok(())
+            }
             _ => Ok(()),
         }
     }
@@ -517,6 +529,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
         self.internally_tagged_end(index);
 
         self.field.ty = FieldType::Any;
+        self.field.default_null = true;
 
         Ok(())
     }
