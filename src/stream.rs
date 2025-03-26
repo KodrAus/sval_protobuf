@@ -185,6 +185,13 @@ pub struct ProtoBufStreamReusable(ProtoBufMutReusable<u64>);
 
 impl ProtoBufStreamReusable {
     /**
+    Create a new, empty set of re-usable internals.
+    */
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /**
     Set the initial capacity of the next encoder.
     */
     pub fn with_capacity(mut self, capacity: Capacity) -> Self {
