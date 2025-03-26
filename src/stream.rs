@@ -18,6 +18,17 @@ pub fn stream_to_protobuf(v: impl sval::Value) -> ProtoBuf {
     stream.buf.freeze()
 }
 
+/**
+An [`sval::Stream`] that encodes into the protobuf wire format.
+*/
+#[derive(Debug)]
+pub struct ProtoBufStream {
+    buf: ProtoBufMut<u64>,
+    field: FieldState,
+    len: LenState,
+    one_of: OneOfState,
+}
+
 impl ProtoBufStream {
     /**
     Create a new protobuf stream.
@@ -162,17 +173,6 @@ struct LenState {
 #[derive(Debug)]
 struct OneOfState {
     is_internally_tagged: bool,
-}
-
-/**
-An [`sval::Stream`] that encodes into the protobuf wire format.
-*/
-#[derive(Debug)]
-pub struct ProtoBufStream {
-    buf: ProtoBufMut<u64>,
-    field: FieldState,
-    len: LenState,
-    one_of: OneOfState,
 }
 
 /**
