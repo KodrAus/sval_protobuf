@@ -7,8 +7,9 @@ value without necessarily knowing the final size upfront.
 
 use crate::raw::{VarInt, WireType, I32, I64};
 use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use core::cmp;
 
-pub(crate) const APPROXIMATE_DEPTH: usize = 16;
+pub(crate) const APPROXIMATE_DEPTH: usize = 32;
 
 mod cursor;
 mod visit;
@@ -65,9 +66,24 @@ impl<T> ProtoBufMut<T> {
     pub fn new(state: T) -> Self {
         ProtoBufMut {
             bytes: Vec::new(),
-            chunks: Vec::new(),
+            chunks: Vec::with_capacity(APPROXIMATE_DEPTH),
             root_state: state,
             len_stack: Vec::with_capacity(APPROXIMATE_DEPTH),
+        }
+    }
+
+    /**
+    Create a new buffering writer, with reused internals and state `T`.
+    */
+    #[inline(always)]
+    pub fn new_reuse(mut reuse: ProtoBufMutReusable<T>, state: T) -> Self {
+        reuse.len_stack.clear();
+
+        ProtoBufMut {
+            bytes: Vec::with_capacity(reuse.capacity.bytes_len),
+            chunks: Vec::with_capacity(reuse.capacity.chunks_len),
+            root_state: state,
+            len_stack: reuse.len_stack,
         }
     }
 
@@ -326,6 +342,32 @@ impl<T> ProtoBufMut<T> {
 
     /**
     Complete the writer, returning an immutable buffer containing the encoded protobuf payload.
+
+    This method also returns some temporary allocations and metadata about the encoded payload
+    that can be used to encode a similar payload more efficiently later.
+    */
+    #[inline]
+    pub fn freeze_reuse(self) -> (ProtoBuf, ProtoBufMutReusable<T>) {
+        let protobuf = ProtoBuf {
+            bytes: self.bytes.into_boxed_slice(),
+            chunks: self.chunks.into_boxed_slice(),
+        };
+
+        let len_stack = self.len_stack;
+
+        let reusable = ProtoBufMutReusable {
+            capacity: Capacity {
+                bytes_len: protobuf.len(),
+                chunks_len: protobuf.chunks.len(),
+            },
+            len_stack,
+        };
+
+        (protobuf, reusable)
+    }
+
+    /**
+    Complete the writer, returning an immutable buffer containing the encoded protobuf payload.
     */
     #[inline(always)]
     pub fn freeze(self) -> ProtoBuf {
@@ -375,5 +417,119 @@ impl ProtoBuf {
 impl sval::Value for ProtoBuf {
     fn stream<'sval, S: sval::Stream<'sval> + ?Sized>(&'sval self, stream: &mut S) -> sval::Result {
         visit::to_stream(&self.bytes, &self.chunks, stream)
+    }
+}
+
+/**
+The size of internal buffers needed to encode a protobuf message.
+*/
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Capacity {
+    bytes_len: usize,
+    chunks_len: usize,
+}
+
+impl Capacity {
+    /**
+    Create a new, empty capacity.
+    */
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /**
+    Compute the next capacity to use to encode a similar protobuf message.
+
+    This method takes the max over a given window, with a little extra headroom for growth.
+    */
+    pub fn next(window: &[Capacity]) -> Capacity {
+        let mut bytes_len = 0;
+        let mut chunks_len = 0;
+
+        for capacity in window {
+            bytes_len = cmp::max(bytes_len, capacity.bytes_len);
+            chunks_len = cmp::max(chunks_len, capacity.chunks_len);
+        }
+
+        Capacity {
+            bytes_len: bytes_len.saturating_add(bytes_len.saturating_mul(2) / 4),
+            chunks_len: chunks_len.saturating_add(chunks_len.saturating_mul(2) / 4),
+        }
+    }
+}
+
+/**
+The re-usable internals of a [`ProtoBufMut`] that can optimize a later encoding.
+
+This type can be produced through [`ProtoBufMut::freeze_reuse`].
+*/
+pub struct ProtoBufMutReusable<T> {
+    capacity: Capacity,
+    len_stack: Vec<LenStackFrame<T>>,
+}
+
+impl<T> Clone for ProtoBufMutReusable<T> {
+    fn clone(&self) -> Self {
+        ProtoBufMutReusable {
+            capacity: self.capacity,
+            len_stack: Vec::with_capacity(self.len_stack.capacity()),
+        }
+    }
+}
+
+impl<T> Default for ProtoBufMutReusable<T> {
+    fn default() -> Self {
+        ProtoBufMutReusable {
+            capacity: Default::default(),
+            len_stack: Default::default(),
+        }
+    }
+}
+
+impl<T> ProtoBufMutReusable<T> {
+    /**
+    Create a new, empty set of re-usable internals.
+    */
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /**
+    Set the initial capacity of the next encoder.
+    */
+    pub fn with_capacity(mut self, capacity: Capacity) -> Self {
+        self.capacity = capacity;
+        self
+    }
+
+    /**
+    Get the current initial capacity.
+    */
+    pub fn capacity(&self) -> Capacity {
+        self.capacity
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn capacity_next() {
+        let window = [
+            Capacity {
+                bytes_len: 13,
+                chunks_len: 2,
+            },
+            Capacity {
+                bytes_len: 2,
+                chunks_len: 13,
+            },
+        ];
+
+        let capacity = Capacity::next(&window);
+
+        assert_eq!(19, capacity.bytes_len);
+        assert_eq!(19, capacity.chunks_len);
     }
 }

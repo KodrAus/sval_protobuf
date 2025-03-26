@@ -94,6 +94,7 @@ Anonymous tuples are also messages:
 128bit numbers are always encoded as a 16 byte buffer with the little-endian bytes of the value.
 */
 
+#![deny(missing_docs)]
 #![no_std]
 
 extern crate alloc;

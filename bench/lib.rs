@@ -17,6 +17,30 @@ fn export_logs_service_request_sval(b: &mut test::Bencher) {
 }
 
 #[bench]
+fn export_logs_service_request_sval_pre_alloc(b: &mut test::Bencher) {
+    use sval::Value as _;
+
+    let mut stream = sval_protobuf::ProtoBufStream::new();
+    data_sval::export_logs_service_request()
+        .stream(&mut stream)
+        .unwrap();
+    let (_, reuse) = stream.freeze_reuse();
+
+    let capacity = reuse.capacity();
+    let mut reuse = Some(reuse.with_capacity(sval_protobuf::Capacity::next(&[capacity])));
+
+    b.iter(|| {
+        let mut stream = sval_protobuf::ProtoBufStream::new_reuse(reuse.take().unwrap());
+        data_sval::export_logs_service_request()
+            .stream(&mut stream)
+            .unwrap();
+        let next = stream.freeze_reuse();
+        reuse = Some(next.1);
+        next.0
+    })
+}
+
+#[bench]
 fn log_record1_prost(b: &mut test::Bencher) {
     b.iter(|| data_prost::log_record1().encode_to_vec());
 }
