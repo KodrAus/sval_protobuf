@@ -5,6 +5,8 @@ The protobuf wire format is described in detail in [the docs](https://protobuf.d
 It's a length-prefixed format that makes extensive use of variable-length integers.
 */
 
+#![allow(missing_docs)]
+
 use core::mem;
 
 #[derive(Debug, Clone, Copy)]

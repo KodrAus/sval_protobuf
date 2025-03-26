@@ -4,6 +4,9 @@ use crate::raw::VarInt;
 use alloc::{boxed::Box, vec::Vec};
 use core::{cmp, ops::Range};
 
+/**
+A reader over an encoded protobuf message that offers a similar API to the `bytes` crate.
+*/
 pub struct ProtoBufCursor {
     bytes: Box<[u8]>,
     chunks: IterBox<LenPrefixedChunk>,
@@ -107,11 +110,22 @@ impl ProtoBufCursor {
         }
     }
 
+    /**
+    Get the next contiguous chunk of data in the message.
+
+    The size of chunks will depend on how the message was originally encoded.
+    Messages produced from streams of values of unknown size will produce smaller chunks.
+    */
     #[inline]
     pub fn chunk(&self) -> &[u8] {
         self.current.as_slice(&self.bytes)
     }
 
+    /**
+    Advance the cursor by `cnt`.
+
+    This method will panic if `cnt` is greater than [`Self::remaining`].
+    */
     pub fn advance(&mut self, mut cnt: usize) {
         self.remaining = self.remaining.saturating_sub(cnt);
 
@@ -135,11 +149,17 @@ impl ProtoBufCursor {
         }
     }
 
+    /**
+    The number of bytes left to read.
+    */
     #[inline]
     pub fn remaining(&self) -> usize {
         self.remaining
     }
 
+    /**
+    Copy all remaining bytes into a contiguous vec.
+    */
     pub fn copy_to_vec(&mut self, v: &mut Vec<u8>) {
         v.reserve(self.remaining());
 

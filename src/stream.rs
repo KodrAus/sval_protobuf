@@ -1,7 +1,9 @@
-use crate::buf::{ProtoBuf, ProtoBufMut};
+use crate::buf::{ProtoBuf, ProtoBufMut, ProtoBufMutReusable};
 use crate::raw::WireType;
 use crate::tags;
 use sval::{Index, Label, Tag};
+
+pub use crate::buf::Capacity;
 
 /**
 Encode a value to the protobuf wire format.
@@ -9,32 +11,110 @@ Encode a value to the protobuf wire format.
 Standalone scalar values will be wrapped in a message with a field number `1`.
 */
 pub fn stream_to_protobuf(v: impl sval::Value) -> ProtoBuf {
-    let mut stream = ProtoBufStream {
-        buf: ProtoBufMut::new(1),
-        field: FieldState {
-            number: 1,
-            ty: FieldType::Root,
-        },
-        len: LenState {
-            is_packed: false,
-            is_prefixed: false,
-        },
-        one_of: OneOfState {
-            is_internally_tagged: false,
-        },
-    };
+    let mut stream = ProtoBufStream::new();
 
     let _ = v.stream(&mut stream);
 
     stream.buf.freeze()
 }
 
+/**
+An [`sval::Stream`] that encodes into the protobuf wire format.
+*/
 #[derive(Debug)]
-struct ProtoBufStream {
+pub struct ProtoBufStream {
     buf: ProtoBufMut<u64>,
     field: FieldState,
     len: LenState,
     one_of: OneOfState,
+}
+
+impl ProtoBufStream {
+    /**
+    Create a new protobuf stream.
+    */
+    pub fn new() -> Self {
+        Self::from_buf(ProtoBufMut::new(1))
+    }
+
+    /**
+    Create a new protobuf stream from reusable internals.
+    */
+    pub fn new_reuse(reuse: ProtoBufStreamReusable) -> Self {
+        Self::from_buf(ProtoBufMut::new_reuse(reuse.0, 1))
+    }
+
+    fn from_buf(buf: ProtoBufMut<u64>) -> Self {
+        ProtoBufStream {
+            buf,
+            field: FieldState {
+                number: 1,
+                ty: FieldType::Root,
+            },
+            len: LenState {
+                is_packed: false,
+                is_prefixed: false,
+            },
+            one_of: OneOfState {
+                is_internally_tagged: false,
+            },
+        }
+    }
+
+    /**
+    Complete the stream, returning the encoded protobuf message.
+    */
+    #[inline]
+    pub fn freeze(self) -> ProtoBuf {
+        self.buf.freeze()
+    }
+
+    /**
+    Complete the stream, returning the encoded protobuf message.
+
+    This method also returns some temporary allocations and metadata about the encoded payload
+    that can be used to encode a similar payload more efficiently later.
+    */
+    #[inline]
+    pub fn freeze_reuse(self) -> (ProtoBuf, ProtoBufStreamReusable) {
+        let (buf, reuse) = self.buf.freeze_reuse();
+
+        (buf, ProtoBufStreamReusable(reuse))
+    }
+
+    fn internally_tagged_begin(&mut self, index: Option<&Index>) {
+        if self.one_of.is_internally_tagged {
+            self.one_of.is_internally_tagged = false;
+
+            if self.field.is_set() {
+                self.field.push(WireType::Len, &mut self.buf);
+                self.buf.begin_len(1);
+            }
+
+            if let Some(index) = index {
+                self.field.set(index);
+            }
+        }
+    }
+
+    fn internally_tagged_end(&mut self, index: Option<&Index>) {
+        if index.is_some() {
+            self.one_of.is_internally_tagged = true;
+        }
+    }
+
+    fn root_begin(&mut self) {
+        if let FieldType::Root = self.field.ty {
+            self.field = FieldState {
+                ty: FieldType::Any,
+                number: 0,
+            }
+        }
+    }
+
+    fn field_begin(&mut self) {
+        self.one_of.is_internally_tagged = false;
+    }
 }
 
 #[derive(Debug)]
@@ -95,39 +175,35 @@ struct OneOfState {
     is_internally_tagged: bool,
 }
 
-impl ProtoBufStream {
-    fn internally_tagged_begin(&mut self, index: Option<&Index>) {
-        if self.one_of.is_internally_tagged {
-            self.one_of.is_internally_tagged = false;
+/**
+The re-usable internals of a [`ProtoBufStream`] that can optimize a later encoding.
 
-            if self.field.is_set() {
-                self.field.push(WireType::Len, &mut self.buf);
-                self.buf.begin_len(1);
-            }
+This type can be produced through [`ProtoBufStream::freeze_reuse`].
+*/
+#[derive(Clone, Default)]
+pub struct ProtoBufStreamReusable(ProtoBufMutReusable<u64>);
 
-            if let Some(index) = index {
-                self.field.set(index);
-            }
-        }
+impl ProtoBufStreamReusable {
+    /**
+    Create a new, empty set of re-usable internals.
+    */
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    fn internally_tagged_end(&mut self, index: Option<&Index>) {
-        if index.is_some() {
-            self.one_of.is_internally_tagged = true;
-        }
+    /**
+    Set the initial capacity of the next encoder.
+    */
+    pub fn with_capacity(mut self, capacity: Capacity) -> Self {
+        self.0 = self.0.with_capacity(capacity);
+        self
     }
 
-    fn root_begin(&mut self) {
-        if let FieldType::Root = self.field.ty {
-            self.field = FieldState {
-                ty: FieldType::Any,
-                number: 0,
-            }
-        }
-    }
-
-    fn field_begin(&mut self) {
-        self.one_of.is_internally_tagged = false;
+    /**
+    Get the current initial capacity.
+    */
+    pub fn capacity(&self) -> Capacity {
+        self.0.capacity()
     }
 }
 
