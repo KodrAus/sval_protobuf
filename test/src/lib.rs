@@ -1889,14 +1889,29 @@ mod tests {
 #[cfg(test)]
 fn assert_proto(expected: &[u8], actual: &[u8]) {
     let roundtrip = sval_protobuf::buf::ProtoBuf::pre_encoded(actual);
-    assert_eq!(actual, &*roundtrip.to_vec());
+    assert_eq!(
+        actual,
+        &*roundtrip.to_vec(),
+        "pre-encoded roundtrip\nexpected:\n{}\nactual:\n{}",
+        inspect(&expected),
+        inspect(&actual),
+    );
+
+    let roundtrip_stream = sval_protobuf::stream_to_protobuf(roundtrip);
+    assert_eq!(
+        actual,
+        &*roundtrip_stream.to_vec(),
+        "stream roundtrip\nexpected:\n{}\nactual:\n{}",
+        inspect(&expected),
+        inspect(&actual),
+    );
 
     assert_eq!(
         expected,
         actual,
         "\nexpected:\n{}\nactual:\n{}",
         inspect(&expected),
-        inspect(&actual)
+        inspect(&actual),
     )
 }
 

@@ -16,10 +16,10 @@ version = "2.8"
 features = ["flatten"]
 
 [dependencies.prost]
-version = "0.13"
+version = "0.14"
 
 [dependencies.bytes]
 version = "1"
 
 [build-dependencies.prost-build]
-version = "0.13"
+version = "0.14"

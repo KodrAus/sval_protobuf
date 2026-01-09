@@ -402,7 +402,7 @@ impl ProtoBuf {
     /**
     Get the payload as a contiguous buffer.
     */
-    pub fn to_vec(&self) -> Cow<[u8]> {
+    pub fn to_vec(&self) -> Cow<'_, [u8]> {
         visit::to_vec(&self.bytes, &self.chunks)
     }
 

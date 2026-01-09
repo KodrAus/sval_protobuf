@@ -28,3 +28,6 @@ optional = true
 [dev-dependencies.sval_derive]
 version = "2.8"
 features = ["alloc", "flatten"]
+
+[profile.release]
+debug = true

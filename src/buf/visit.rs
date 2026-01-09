@@ -1,4 +1,4 @@
-use crate::raw::VarInt;
+use crate::{raw::VarInt, tags};
 use alloc::{borrow::Cow, vec::Vec};
 
 use super::LenPrefixedChunk;
@@ -58,6 +58,8 @@ pub(super) fn to_stream<'a>(
     chunks: &[LenPrefixedChunk],
     stream: &mut (impl sval::Stream<'a> + ?Sized),
 ) -> sval::Result {
+    stream.tagged_begin(Some(&tags::PROTOBUF_PRE_ENCODED), None, None)?;
+
     if chunks.len() == 0 {
         stream.binary_begin(Some(bytes.len()))?;
         stream.binary_fragment(bytes)?;
@@ -88,7 +90,8 @@ pub(super) fn to_stream<'a>(
         visitor.result?;
     }
 
-    stream.binary_end()
+    stream.binary_end()?;
+    stream.tagged_end(Some(&tags::PROTOBUF_PRE_ENCODED), None, None)
 }
 
 #[inline(always)]
