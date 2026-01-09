@@ -82,6 +82,7 @@ impl ProtoBufStream {
         (buf, ProtoBufStreamReusable(reuse))
     }
 
+    #[inline(always)]
     fn internally_tagged_begin(&mut self, index: Option<&Index>) {
         if self.one_of.is_internally_tagged {
             self.one_of.is_internally_tagged = false;
@@ -97,12 +98,14 @@ impl ProtoBufStream {
         }
     }
 
+    #[inline(always)]
     fn internally_tagged_end(&mut self, index: Option<&Index>) {
         if index.is_some() {
             self.one_of.is_internally_tagged = true;
         }
     }
 
+    #[inline(always)]
     fn root_begin(&mut self) {
         if let FieldType::Root = self.field.ty {
             self.field = FieldState {
@@ -112,8 +115,41 @@ impl ProtoBufStream {
         }
     }
 
+    #[inline(always)]
     fn field_begin(&mut self) {
         self.one_of.is_internally_tagged = false;
+    }
+
+    #[inline(always)]
+    fn non_root_binary_begin(&mut self, num_bytes: Option<usize>) -> sval::Result {
+        if let Some(num_bytes) = num_bytes {
+            self.len.is_prefixed = true;
+
+            self.buf.reserve_bytes(num_bytes);
+
+            self.field.push_if_set(WireType::Len, &mut self.buf);
+            self.buf.push_len_varint_uint64(num_bytes as u64);
+
+            Ok(())
+        } else {
+            self.field.push_if_set(WireType::Len, &mut self.buf);
+            self.buf.begin_len(1);
+
+            Ok(())
+        }
+    }
+
+    #[inline(always)]
+    fn non_root_binary_end(&mut self) -> sval::Result {
+        if self.len.is_prefixed {
+            self.len.is_prefixed = false;
+
+            Ok(())
+        } else {
+            self.buf.end_len();
+
+            Ok(())
+        }
     }
 }
 
@@ -224,7 +260,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn text_begin(&mut self, num_bytes: Option<usize>) -> sval::Result {
-        self.binary_begin(num_bytes)
+        self.non_root_binary_begin(num_bytes)
     }
 
     fn text_fragment_computed(&mut self, fragment: &str) -> sval::Result {
@@ -232,7 +268,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn text_end(&mut self) -> sval::Result {
-        self.binary_end()
+        self.non_root_binary_end()
     }
 
     fn binary_begin(&mut self, num_bytes: Option<usize>) -> sval::Result {
@@ -244,21 +280,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
             return Ok(());
         }
 
-        if let Some(num_bytes) = num_bytes {
-            self.len.is_prefixed = true;
-
-            self.buf.reserve_bytes(num_bytes);
-
-            self.field.push_if_set(WireType::Len, &mut self.buf);
-            self.buf.push_len_varint_uint64(num_bytes as u64);
-
-            Ok(())
-        } else {
-            self.field.push_if_set(WireType::Len, &mut self.buf);
-            self.buf.begin_len(1);
-
-            Ok(())
-        }
+        self.non_root_binary_begin(num_bytes)
     }
 
     fn binary_fragment_computed(&mut self, fragment: &[u8]) -> sval::Result {
@@ -272,15 +294,7 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
             return Ok(());
         }
 
-        if self.len.is_prefixed {
-            self.len.is_prefixed = false;
-
-            Ok(())
-        } else {
-            self.buf.end_len();
-
-            Ok(())
-        }
+        self.non_root_binary_end()
     }
 
     fn u32(&mut self, value: u32) -> sval::Result {
