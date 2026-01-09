@@ -123,10 +123,11 @@ struct FieldState {
     ty: FieldType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 enum FieldType {
     Any,
     Root,
+    PreEncoded,
     Signed,
     I32,
     I64,
@@ -235,6 +236,14 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn binary_begin(&mut self, num_bytes: Option<usize>) -> sval::Result {
+        if self.field.ty == FieldType::PreEncoded {
+            if let Some(num_bytes) = num_bytes {
+                self.buf.reserve_bytes(num_bytes);
+            }
+
+            return Ok(());
+        }
+
         if let Some(num_bytes) = num_bytes {
             self.len.is_prefixed = true;
 
@@ -259,6 +268,10 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
     }
 
     fn binary_end(&mut self) -> sval::Result {
+        if self.field.ty == FieldType::PreEncoded {
+            return Ok(());
+        }
+
         if self.len.is_prefixed {
             self.len.is_prefixed = false;
 
@@ -533,6 +546,14 @@ impl<'sval> sval::Stream<'sval> for ProtoBufStream {
             }
             Some(&tags::PROTOBUF_VARINT_SIGNED) => {
                 self.field.ty = FieldType::Signed;
+
+                Ok(())
+            }
+            Some(&tags::PROTOBUF_PRE_ENCODED) => {
+                // Roundtrip `ProtoBuf` values when they appear at the root
+                if self.field.ty == FieldType::Root {
+                    self.field.ty = FieldType::PreEncoded;
+                }
 
                 Ok(())
             }

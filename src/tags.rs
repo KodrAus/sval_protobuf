@@ -26,3 +26,8 @@ Variable-length zigzag encoding can be more efficient than the default strategy
 for negative values.
 */
 pub const PROTOBUF_VARINT_SIGNED: sval::Tag = sval::Tag::new("PROTOBUF_VARINT_SIGNED");
+
+/**
+A tag for round-tripping pre-encoded protobuf messages.
+*/
+pub(crate) const PROTOBUF_PRE_ENCODED: sval::Tag = sval::Tag::new("PROTOBUF_PRE_ENCODED");
