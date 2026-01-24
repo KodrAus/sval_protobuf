@@ -5,6 +5,9 @@ publish = false
 edition = "2021"
 build = "build.rs"
 
+[features]
+default = ["prost"]
+
 [dependencies.sval_protobuf]
 path = "../"
 
@@ -17,6 +20,7 @@ features = ["flatten"]
 
 [dependencies.prost]
 version = "0.14"
+optional = true
 
 [dependencies.bytes]
 version = "1"

@@ -1,7 +1,9 @@
+#[cfg(feature = "prost")]
 pub mod data_prost;
+
 pub mod data_sval;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "prost"))]
 mod tests {
     use super::*;
 

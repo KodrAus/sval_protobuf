@@ -1,3 +1,4 @@
+#[cfg(feature = "prost")]
 pub mod protos {
     pub mod cases {
         include!(concat!(env!("OUT_DIR"), "/sval.protobuf.cases.rs"));
@@ -45,7 +46,7 @@ pub mod protos {
 
 pub mod opentelemetry;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "prost"))]
 mod tests {
     use super::*;
     use std::collections::BTreeMap;
@@ -1886,7 +1887,7 @@ mod tests {
 }
 
 #[track_caller]
-#[cfg(test)]
+#[cfg(all(test, feature = "prost"))]
 fn assert_proto(expected: &[u8], actual: &[u8]) {
     let roundtrip = sval_protobuf::buf::ProtoBuf::pre_encoded(actual);
     assert_eq!(
@@ -1915,12 +1916,12 @@ fn assert_proto(expected: &[u8], actual: &[u8]) {
     )
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "prost"))]
 fn inspect(encoded: &[u8]) -> String {
     protoscope(encoded).unwrap_or_else(|_| "<protoscope not available>".to_owned())
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "prost"))]
 fn protoscope(encoded: &[u8]) -> Result<String, Box<dyn std::error::Error + 'static>> {
     use std::{
         io::{Read, Write},
