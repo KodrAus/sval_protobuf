@@ -2,11 +2,15 @@
 #![feature(test)]
 extern crate test;
 
-use ::prost::Message as _;
+#[cfg(feature = "prost")]
+use prost::Message as _;
+#[cfg(feature = "prost")]
+use sval_protobuf_test::opentelemetry::data_prost;
 
-use sval_protobuf_test::opentelemetry::{data_prost, data_sval};
+use sval_protobuf_test::opentelemetry::data_sval;
 
 #[bench]
+#[cfg(feature = "prost")]
 fn export_logs_service_request_prost(b: &mut test::Bencher) {
     b.iter(|| data_prost::export_logs_service_request().encode_to_vec());
 }
@@ -41,6 +45,7 @@ fn export_logs_service_request_sval_pre_alloc(b: &mut test::Bencher) {
 }
 
 #[bench]
+#[cfg(feature = "prost")]
 fn log_record1_prost(b: &mut test::Bencher) {
     b.iter(|| data_prost::log_record1().encode_to_vec());
 }
@@ -51,6 +56,7 @@ fn log_record1_sval(b: &mut test::Bencher) {
 }
 
 #[bench]
+#[cfg(feature = "prost")]
 fn log_record2_prost(b: &mut test::Bencher) {
     b.iter(|| data_prost::log_record2().encode_to_vec());
 }
@@ -61,6 +67,7 @@ fn log_record2_sval(b: &mut test::Bencher) {
 }
 
 #[bench]
+#[cfg(feature = "prost")]
 fn log_record3_prost(b: &mut test::Bencher) {
     b.iter(|| data_prost::log_record3().encode_to_vec());
 }
